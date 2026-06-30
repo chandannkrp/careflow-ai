@@ -1,0 +1,27 @@
+
+> careflow-ai-frontend@0.1.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v6.4.3[39m  [2mready in [0m[1m9631[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m2:09:53 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/types/careflow.ts[22m
+[2m2:10:26 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css, /src/features/queue/QueueTable.tsx, /src/features/ai-chat/AiAgentChat.tsx, /src/features/intake/IntakeForm.tsx, /src/features/metrics/MetricsDashboard.tsx[22m
+[2m2:12:28 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css[22m
+[2m2:13:01 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/intake/IntakeForm.tsx, /src/styles/global.css[22m
+[2m4:02:16 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/types/careflow.ts[22m
+[2m4:02:38 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css, /src/features/queue/QueueTable.tsx, /src/features/ai-chat/AiAgentChat.tsx, /src/features/intake/IntakeForm.tsx, /src/features/metrics/MetricsDashboard.tsx, /src/features/agent/AgentDashboardPanel.tsx[22m
+[2m4:02:57 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css, /src/features/queue/QueueTable.tsx, /src/features/ai-chat/AiAgentChat.tsx, /src/features/intake/IntakeForm.tsx, /src/features/metrics/MetricsDashboard.tsx, /src/features/agent/AgentDashboardPanel.tsx[22m
+[2m4:03:32 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css[22m
+[2m4:03:56 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/queue/QueueTable.tsx, /src/styles/global.css[22m
+[2m4:04:15 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/queue/QueueTable.tsx, /src/styles/global.css[22m
+[2m4:04:39 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/queue/QueueTable.tsx, /src/styles/global.css[22m
+[2m4:05:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/queue/QueueTable.tsx, /src/styles/global.css[22m
+[2m4:05:59 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/queue/QueueTable.tsx, /src/styles/global.css[22m
+[2m4:06:34 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/agent/AgentDashboardPanel.tsx, /src/styles/global.css[22m
+[2m4:07:03 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/intake/IntakeForm.tsx, /src/styles/global.css[22m
+[2m4:52:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/types/careflow.ts[22m
+[2m4:52:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css, /src/features/queue/QueueTable.tsx, /src/features/ai-chat/AiAgentChat.tsx, /src/features/intake/IntakeForm.tsx, /src/features/metrics/MetricsDashboard.tsx, /src/features/agent/AgentDashboardPanel.tsx, /src/features/people/PeopleDirectory.tsx[22m
+[2m4:54:49 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/App.tsx, /src/styles/global.css[22m
+[2m4:55:20 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/queue/QueueTable.tsx, /src/styles/global.css[22m

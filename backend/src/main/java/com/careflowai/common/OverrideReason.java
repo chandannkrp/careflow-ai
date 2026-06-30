@@ -1,0 +1,10 @@
+package com.careflowai.common;
+
+public enum OverrideReason {
+    NEW_SYMPTOM_INFORMATION,
+    UPDATED_VITALS,
+    STAFF_CLINICAL_JUDGMENT,
+    PATIENT_DETERIORATION,
+    PATIENT_CONDITION_IMPROVED,
+    DATA_ENTRY_CORRECTION
+}

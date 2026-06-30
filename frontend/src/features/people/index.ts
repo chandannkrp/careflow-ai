@@ -1,0 +1,1 @@
+export { PeopleDirectory } from './PeopleDirectory';
