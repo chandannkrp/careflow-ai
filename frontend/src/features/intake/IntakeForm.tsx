@@ -1,4 +1,4 @@
-import { Activity, AlertCircle, ClipboardPlus, RotateCcw, Save, Stethoscope } from 'lucide-react';
+import { Activity, AlertCircle, BrainCircuit, ClipboardPlus, Loader2, RotateCcw, Save, Stethoscope } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { createIntake, getNextPatientDisplayId } from '../../api/client';
 import type {
@@ -245,7 +245,8 @@ export function IntakeForm({ departments, activeStaff, onCreated }: IntakeFormPr
 
   return (
     <section aria-labelledby="intake-title" className="py-6">
-      <form onSubmit={handleSubmit} className="border-b border-sky-100 pb-6">
+      <form onSubmit={handleSubmit} className="relative border-b border-sky-100 pb-6">
+        {isSubmitting ? <DiagnosisLoadingOverlay patientDisplayId={patientDisplayId} /> : null}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium text-sky-700">Patient intake</p>
@@ -500,5 +501,29 @@ function VitalInput({ label, value, onChange, step = '1' }: VitalInputProps) {
       {label}
       <input type="number" value={value ?? ''} onChange={(event) => onChange(event.target.value)} step={step} className="input-field" />
     </label>
+  );
+}
+
+function DiagnosisLoadingOverlay({ patientDisplayId }: { patientDisplayId: string }) {
+  return (
+    <div className="absolute inset-0 z-20 flex items-start justify-center rounded-lg bg-white/80 px-4 pt-24 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-lg border border-emerald-200 bg-white p-5 text-center shadow-2xl">
+        <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-emerald-50">
+          <span className="absolute h-3 w-3 rounded-full bg-emerald-600 animate-orbit" />
+          <span className="absolute inset-4 overflow-hidden rounded-full border border-emerald-200">
+            <span className="block h-8 bg-emerald-200/40 animate-scan-line" />
+          </span>
+          <BrainCircuit size={34} className="relative text-emerald-700" aria-hidden="true" />
+        </div>
+        <h3 className="mt-4 text-base font-semibold text-slate-950">Savi is assessing {patientDisplayId}</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Generating suggested diagnosis, urgency, and medical attention notes from the intake.
+        </p>
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white">
+          <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+          Waiting for complete LLM response
+        </div>
+      </div>
+    </div>
   );
 }

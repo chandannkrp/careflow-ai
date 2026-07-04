@@ -3,6 +3,7 @@ package com.careflowai.queue;
 import com.careflowai.agent.CareTeamAssignment;
 import com.careflowai.agent.PatientAgentService;
 import com.careflowai.assessment.UrgencyAssessment;
+import com.careflowai.assessment.UrgencyAssessmentRepository;
 import com.careflowai.common.QueueStatus;
 import com.careflowai.common.StaffRole;
 import com.careflowai.common.UrgencyCategory;
@@ -16,6 +17,7 @@ import com.careflowai.queue.dto.UpdatePlacementRequest;
 import com.careflowai.queue.dto.UpdateStatusRequest;
 import com.careflowai.staff.StaffUser;
 import com.careflowai.staff.StaffUserService;
+import com.careflowai.vector.SimpleIntakeVectorStore;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.Comparator;
@@ -32,17 +34,23 @@ public class QueueService {
 
     private final QueueEntryRepository queueEntryRepository;
     private final PriorityOverrideRepository priorityOverrideRepository;
+    private final UrgencyAssessmentRepository assessmentRepository;
     private final StaffUserService staffUserService;
     private final PatientAgentService patientAgentService;
+    private final SimpleIntakeVectorStore vectorStore;
 
     public QueueService(QueueEntryRepository queueEntryRepository,
                         PriorityOverrideRepository priorityOverrideRepository,
+                        UrgencyAssessmentRepository assessmentRepository,
                         StaffUserService staffUserService,
-                        PatientAgentService patientAgentService) {
+                        PatientAgentService patientAgentService,
+                        SimpleIntakeVectorStore vectorStore) {
         this.queueEntryRepository = queueEntryRepository;
         this.priorityOverrideRepository = priorityOverrideRepository;
+        this.assessmentRepository = assessmentRepository;
         this.staffUserService = staffUserService;
         this.patientAgentService = patientAgentService;
+        this.vectorStore = vectorStore;
     }
 
     @Transactional
@@ -51,7 +59,9 @@ public class QueueService {
             .orElseGet(() -> new QueueEntry(patient, intake, assessment.getFinalCategory(), assessment.getFinalScore(),
                 intake.getArrivalTimestamp(), intake.getDepartment(), intake.getCurrentStatus()));
         entry.applyCalculatedPriority(assessment.getFinalCategory(), assessment.getFinalScore(), intake);
-        return queueEntryRepository.save(entry);
+        QueueEntry saved = queueEntryRepository.save(entry);
+        refreshVectorContext(saved, assessment);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +125,7 @@ public class QueueService {
         entry.applyStaffOverride(request.newCategory(), request.newScore());
         QueueEntry saved = queueEntryRepository.save(entry);
         patientAgentService.handlePriorityOverridden(saved, actor);
+        refreshVectorContext(saved);
         return toResponse(saved);
     }
 
@@ -130,6 +141,7 @@ public class QueueService {
         entry.updateStatus(request.status());
         QueueEntry saved = queueEntryRepository.save(entry);
         patientAgentService.handleStatusChanged(saved, actor);
+        refreshVectorContext(saved);
         return toResponse(saved);
     }
 
@@ -145,6 +157,7 @@ public class QueueService {
         entry.updatePlacement(request.status(), request.department().trim());
         QueueEntry saved = queueEntryRepository.save(entry);
         patientAgentService.handleStatusChanged(saved, actor);
+        refreshVectorContext(saved);
         return toResponse(saved);
     }
 
@@ -158,6 +171,7 @@ public class QueueService {
         QueueEntry entry = queueEntryRepository.findByPatientId(patientId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Queue entry not found."));
         CareTeamAssignment assignment = patientAgentService.assignDoctor(entry, doctor, actor, request.note());
+        refreshVectorContext(entry, null, assignment);
         return QueueEntryResponse.from(entry, Instant.now(), assignment);
     }
 
@@ -169,6 +183,7 @@ public class QueueService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Queue entry not found."));
         entry.updateStatus(QueueStatus.LEFT_WITHOUT_BEING_SEEN);
         patientAgentService.handleRemovedFromQueue(entry, actor, safeRequest.reason());
+        refreshVectorContext(entry);
         queueEntryRepository.delete(entry);
     }
 
@@ -183,5 +198,30 @@ public class QueueService {
             Instant.now(),
             patientAgentService.currentAssignment(entry.getPatient().getId()).orElse(null)
         );
+    }
+
+    private void refreshVectorContext(QueueEntry entry) {
+        refreshVectorContext(entry, null, null);
+    }
+
+    private void refreshVectorContext(QueueEntry entry, UrgencyAssessment knownAssessment) {
+        refreshVectorContext(entry, knownAssessment, null);
+    }
+
+    private void refreshVectorContext(QueueEntry entry, UrgencyAssessment knownAssessment, CareTeamAssignment knownAssignment) {
+        UrgencyAssessment assessment = knownAssessment == null
+            ? assessmentRepository.findTopByPatientIdOrderByAssessedAtDesc(entry.getPatient().getId()).orElse(null)
+            : knownAssessment;
+        CareTeamAssignment assignment = knownAssignment == null
+            ? patientAgentService.currentAssignment(entry.getPatient().getId()).orElse(null)
+            : knownAssignment;
+        String assignmentSummary = assignment == null
+            ? null
+            : "Active doctor assignment: %s (%s). Reason: %s.".formatted(
+                assignment.getAssignedDoctor().getDisplayName(),
+                assignment.getAssignedDoctor().getStaffCode(),
+                assignment.getAssignmentReason()
+            );
+        vectorStore.indexQueueEntry(entry, assessment, assignmentSummary);
     }
 }

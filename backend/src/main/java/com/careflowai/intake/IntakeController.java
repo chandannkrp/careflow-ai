@@ -2,6 +2,7 @@ package com.careflowai.intake;
 
 import com.careflowai.intake.dto.CreateIntakeRequest;
 import com.careflowai.intake.dto.IntakeResponse;
+import com.careflowai.intake.dto.PatientReportResponse;
 import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
@@ -17,9 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class IntakeController {
 
     private final IntakeService intakeService;
+    private final PatientReportService patientReportService;
 
-    public IntakeController(IntakeService intakeService) {
+    public IntakeController(IntakeService intakeService, PatientReportService patientReportService) {
         this.intakeService = intakeService;
+        this.patientReportService = patientReportService;
     }
 
     @PostMapping
@@ -40,5 +43,10 @@ public class IntakeController {
     @PostMapping("/{id}/assess")
     public IntakeResponse assess(@PathVariable UUID id) {
         return intakeService.assess(id);
+    }
+
+    @PostMapping("/{id}/report")
+    public PatientReportResponse report(@PathVariable UUID id) {
+        return patientReportService.generate(id);
     }
 }

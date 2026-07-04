@@ -7,6 +7,9 @@ import type {
   CreateIntakeRequest,
   IntakeResponse,
   HospitalAllocation,
+  HospitalChatMessage,
+  KnowledgeDocument,
+  PatientReportResponse,
   QueueMetrics,
   QueueEntry,
   QueueFilters,
@@ -239,6 +242,49 @@ export function sendAiChatMessage(request: AiChatRequest) {
 
 export function sendAiTestChatMessage(request: AiChatRequest) {
   return apiRequest<AiChatResponse>('/api/ai/test-chat', {
+    method: 'POST',
+    body: JSON.stringify(request),
+    timeoutMs: 45000,
+  });
+}
+
+export function generatePatientReport(intakeId: string) {
+  return apiRequest<PatientReportResponse>(`/api/intakes/${intakeId}/report`, {
+    method: 'POST',
+    timeoutMs: 45000,
+  });
+}
+
+export function getKnowledgeDocuments() {
+  return apiRequest<KnowledgeDocument[]>('/api/knowledge');
+}
+
+export async function uploadKnowledgeDocument(file: File, title?: string) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (title?.trim()) {
+    formData.append('title', title.trim());
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/knowledge`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(body || `Request failed with status ${response.status}`);
+  }
+
+  return response.json() as Promise<KnowledgeDocument>;
+}
+
+export function getHospitalChatMessages() {
+  return apiRequest<HospitalChatMessage[]>('/api/hospital-chat');
+}
+
+export function sendHospitalChatMessage(request: { authorName: string; authorRole: StaffUser['role']; body: string }) {
+  return apiRequest<HospitalChatMessage[]>('/api/hospital-chat', {
     method: 'POST',
     body: JSON.stringify(request),
     timeoutMs: 45000,

@@ -94,7 +94,7 @@ export function AiAgentChat({ activeStaff, onAction, embedded = false }: AiAgent
     setMessages((current) => [
       ...current,
       { id: Date.now(), role: 'staff', text: trimmedMessage },
-      { id: pendingId, role: 'assistant', text: 'Checking queue context...', aiBacked: false, isPending: true },
+      { id: pendingId, role: 'assistant', text: 'Savi is checking live workspace context...', aiBacked: false, isPending: true },
     ]);
 
     try {
@@ -246,12 +246,12 @@ function MessageText({ text }: { text: string }) {
         if (!trimmed) {
           return <div key={`${line}-${index}`} className="h-1" />;
         }
-        const bulletText = trimmed.replace(/^[-*•]\s*/, '');
+        const bulletText = trimmed.replace(/^[-*]\s*/, '');
         const labelMatch = bulletText.match(/^([^:]{2,34}):\s*(.*)$/);
 
         return (
-          <p key={`${line}-${index}`} className={trimmed.match(/^[-*•]\s*/) ? 'flex gap-2' : ''}>
-            {trimmed.match(/^[-*•]\s*/) ? <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50" /> : null}
+          <p key={`${line}-${index}`} className={trimmed.match(/^[-*]\s*/) ? 'flex gap-2' : ''}>
+            {trimmed.match(/^[-*]\s*/) ? <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-50" /> : null}
             <span className="min-w-0">
               {labelMatch ? (
                 <>

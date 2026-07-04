@@ -33,6 +33,7 @@ public class AiChatService {
         You can discuss patient lookup, intake completeness, existing LLM triage summaries,
         urgency rationale already present in records, queue state, wait times, doctor assignments,
         beds, department coverage, and workflow actions.
+        You may also answer from uploaded hospital knowledge documents when they are supplied.
         Do not invent patients, bookings, doctors, diagnoses, or treatment plans.
         If asked for new clinical diagnosis or care, state that a licensed clinician must decide
         and provide only the existing recorded triage facts.
@@ -89,6 +90,9 @@ public class AiChatService {
         List<SimpleIntakeVectorStore.SearchResult> intakeMatches = requiresSemanticRetrieval(message)
             ? vectorStore.search(message, 4)
             : List.of();
+        List<SimpleIntakeVectorStore.KnowledgeSearchResult> knowledgeMatches = requiresKnowledgeRetrieval(message)
+            ? vectorStore.searchKnowledge(message, 3)
+            : List.of();
         List<QueueEntryResponse> queueContext = needsQueueContext(message)
             ? queueService.getQueue(null, null, null).stream().limit(8).toList()
             : List.of();
@@ -98,7 +102,7 @@ public class AiChatService {
 
         try {
             String response = springAiChatService.respond(RAG_INSTRUCTION, objectMapper.writeValueAsString(
-                chatPayload(request, metrics, intakeMatches, queueContext, allocation)
+                chatPayload(request, metrics, intakeMatches, knowledgeMatches, queueContext, allocation)
             ));
             if (response == null || response.isBlank()) {
                 return fallbackResponse(request, metrics, intakeMatches, queueContext);
@@ -110,7 +114,7 @@ public class AiChatService {
             }
             try {
                 String response = responsesClient.respond(RAG_INSTRUCTION, objectMapper.writeValueAsString(
-                    chatPayload(request, metrics, intakeMatches, queueContext, allocation)
+                    chatPayload(request, metrics, intakeMatches, knowledgeMatches, queueContext, allocation)
                 ));
                 if (response == null || response.isBlank()) {
                     return fallbackResponse(request, metrics, intakeMatches, queueContext);
@@ -157,6 +161,7 @@ public class AiChatService {
     private Map<String, Object> chatPayload(AiChatRequest request,
                                             QueueMetricsResponse metrics,
                                             List<SimpleIntakeVectorStore.SearchResult> intakeMatches,
+                                            List<SimpleIntakeVectorStore.KnowledgeSearchResult> knowledgeMatches,
                                             List<QueueEntryResponse> queueContext,
                                             HospitalAllocationResponse allocation) {
         Map<String, Object> payload = new LinkedHashMap<>();
@@ -177,6 +182,9 @@ public class AiChatService {
         }
         if (!intakeMatches.isEmpty()) {
             payload.put("retrievedPatientIntakes", intakeMatches.stream().map(this::matchPayload).toList());
+        }
+        if (!knowledgeMatches.isEmpty()) {
+            payload.put("retrievedHospitalKnowledge", knowledgeMatches.stream().map(this::knowledgePayload).toList());
         }
         return payload;
     }
@@ -210,6 +218,14 @@ public class AiChatService {
             "score", result.score(),
             "patientDisplayId", result.document().getPatientDisplayId(),
             "content", shortContent(result.document().getContent(), 900)
+        );
+    }
+
+    private Map<String, Object> knowledgePayload(SimpleIntakeVectorStore.KnowledgeSearchResult result) {
+        return Map.of(
+            "title", result.document().getTitle(),
+            "fileName", result.document().getFileName(),
+            "content", shortContent(result.document().getContent(), 1000)
         );
     }
 
@@ -260,6 +276,13 @@ public class AiChatService {
             "patient", "patients", "intake", "triage", "treatment", "symptom", "diagnosis", "attention",
             "chest", "pain", "blood", "bleeding", "breath", "pediatric", "trauma", "complaint", "notes"
         ));
+    }
+
+    private boolean requiresKnowledgeRetrieval(String message) {
+        return containsAny(message, List.of(
+            "policy", "procedure", "protocol", "manual", "knowledge", "pdf", "document", "guideline",
+            "savi", "hospital", "what should", "how do", "where is", "explain"
+        )) || !requiresSemanticRetrieval(message);
     }
 
     private boolean needsQueueContext(String message) {

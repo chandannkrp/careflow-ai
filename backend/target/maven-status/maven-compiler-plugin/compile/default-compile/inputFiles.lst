@@ -42,6 +42,10 @@ C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backe
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\assessment\UrgencyAssessmentRepository.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\assessment\UrgencyScoringService.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\CareflowAiApplication.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\chat\dto\HospitalChatMessageResponse.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\chat\dto\HospitalChatRequest.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\chat\HospitalChatController.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\chat\HospitalChatService.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\common\AgeBand.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\common\ArrivalMode.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\common\ConfidenceLevel.java
@@ -54,6 +58,7 @@ C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backe
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\config\OpenApiConfig.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\dto\CreateIntakeRequest.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\dto\IntakeResponse.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\dto\PatientReportResponse.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\dto\RiskFlagsDto.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\dto\VitalsDto.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\Intake.java
@@ -61,6 +66,7 @@ C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backe
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\IntakeMapper.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\IntakeRepository.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\IntakeService.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\PatientReportService.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\RiskFlags.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\intake\Vitals.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\metrics\MetricsController.java
@@ -97,7 +103,11 @@ C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backe
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\thread\PatientThreadCommentRepository.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\thread\PatientThreadController.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\thread\PatientThreadService.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\dto\KnowledgeDocumentResponse.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\IntakeVectorBackfillRunner.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\IntakeVectorDocument.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\IntakeVectorDocumentRepository.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\KnowledgeController.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\KnowledgeDocument.java
+C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\KnowledgeDocumentRepository.java
 C:\Users\bijeta-bijayinee\OneDrive - HCL TECHNOLOGIES LIMITED\Desktop\8BIT\backend\src\main\java\com\careflowai\vector\SimpleIntakeVectorStore.java

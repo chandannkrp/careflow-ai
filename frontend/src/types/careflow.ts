@@ -228,6 +228,40 @@ export interface AiChatResponse {
   createdAt: string;
 }
 
+export interface PatientReportResponse {
+  patientDisplayId: string;
+  report: string;
+  aiBacked: boolean;
+  createdAt: string;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  title: string;
+  fileName: string;
+  contentLength: number;
+  updatedAt: string;
+}
+
+export interface HospitalChatMessage {
+  id: string;
+  authorName: string;
+  authorRole: StaffRole | null;
+  body: string;
+  savi: boolean;
+  createdAt: string;
+}
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  intakeId: string;
+  patientDisplayId: string;
+  department: string;
+  startsAt: string;
+  note: string;
+}
+
 export interface PatientFlashcard {
   id: string;
   patientId: string;

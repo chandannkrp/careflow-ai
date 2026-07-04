@@ -1,4 +1,4 @@
-import { Activity, AlertCircle, CheckCircle2, Clock3, RefreshCw } from 'lucide-react';
+import { Activity, AlertCircle, CheckCircle2, ChevronsDownUp, ChevronsUpDown, Clock3, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAgentDashboard, resolveFlashcard } from '../../api/client';
 import type { AgentDashboard, PatientFlashcard, PatientTimelineEvent, UrgencyCategory } from '../../types/careflow';
@@ -39,6 +39,7 @@ export function AgentDashboardPanel({ refreshSignal = 0 }: AgentDashboardPanelPr
   const [error, setError] = useState<string | null>(null);
   const [resolverName, setResolverName] = useState('Care team');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setError(null);
@@ -129,8 +130,10 @@ export function AgentDashboardPanel({ refreshSignal = 0 }: AgentDashboardPanelPr
               <Flashcard
                 key={flashcard.id}
                 flashcard={flashcard}
+                expanded={expandedCardId === flashcard.id}
                 isResolving={resolvingId === flashcard.id}
                 onResolve={() => void handleResolve(flashcard)}
+                onToggleExpand={() => setExpandedCardId((current) => (current === flashcard.id ? null : flashcard.id))}
               />
             ))
           )}
@@ -165,16 +168,20 @@ export function AgentDashboardPanel({ refreshSignal = 0 }: AgentDashboardPanelPr
 }
 
 function Flashcard({
+  expanded,
   flashcard,
   isResolving,
   onResolve,
+  onToggleExpand,
 }: {
+  expanded: boolean;
   flashcard: PatientFlashcard;
   isResolving: boolean;
   onResolve: () => void;
+  onToggleExpand: () => void;
 }) {
   return (
-    <article className="rounded-lg border border-sky-100 bg-white p-4 shadow-sm">
+    <article className={`rounded-lg border border-sky-100 bg-white p-4 shadow-sm transition ${expanded ? 'md:col-span-2' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{flashcard.patientDisplayId}</p>
@@ -189,22 +196,53 @@ function Flashcard({
 
       <p className="mt-3 text-sm leading-6 text-slate-600">{flashcard.summary}</p>
 
+      {expanded ? (
+        <div className="mt-4 grid gap-3 rounded-md border border-sky-100 bg-sky-50 p-3 sm:grid-cols-3">
+          <FlashcardFact label="Assigned" value={flashcard.assignedStaffName ?? formatLabel(flashcard.audienceRole)} />
+          <FlashcardFact label="Department" value={flashcard.department} />
+          <FlashcardFact label="Status" value={formatLabel(flashcard.status)} />
+          <FlashcardFact label="Patient" value={flashcard.patientDisplayId} />
+          <FlashcardFact label="Action" value={flashcard.actionLabel} />
+          <FlashcardFact label="Updated" value={formatRelativeTime(flashcard.updatedAt)} />
+        </div>
+      ) : null}
+
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-sky-100 pt-3">
         <div className="text-xs text-slate-500">
           <p className="font-semibold text-slate-700">{flashcard.assignedStaffName ?? formatLabel(flashcard.audienceRole)}</p>
           <p>{formatLabel(flashcard.status)} - {flashcard.actionLabel}</p>
         </div>
-        <button
-          type="button"
-          onClick={onResolve}
-          disabled={isResolving}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <CheckCircle2 size={15} aria-hidden="true" />
-          {isResolving ? 'Saving' : 'Resolve'}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-sky-200 bg-white text-slate-800 transition hover:bg-sky-50"
+            aria-label={expanded ? 'Fold flashcard' : 'Expand flashcard'}
+            title={expanded ? 'Fold' : 'Expand'}
+          >
+            {expanded ? <ChevronsDownUp size={15} aria-hidden="true" /> : <ChevronsUpDown size={15} aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            onClick={onResolve}
+            disabled={isResolving}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <CheckCircle2 size={15} aria-hidden="true" />
+            {isResolving ? 'Saving' : 'Resolve'}
+          </button>
+        </div>
       </div>
     </article>
+  );
+}
+
+function FlashcardFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-medium text-slate-800">{value}</p>
+    </div>
   );
 }
 

@@ -4,11 +4,16 @@ import {
   ArrowDownAZ,
   ArrowUpAZ,
   BadgeAlert,
+  CalendarDays,
   CheckCircle2,
+  ClipboardCheck,
   Clock3,
+  FileText,
   Filter,
   GripVertical,
+  Loader2,
   MapPin,
+  Pill,
   PlayCircle,
   RefreshCw,
   ShieldAlert,
@@ -24,6 +29,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   assignQueueDoctor,
   createThreadComment,
+  generatePatientReport,
   getIntake,
   getPatientThread,
   getQueueEntries,
@@ -32,7 +38,9 @@ import {
   updateQueueStatus,
 } from '../../api/client';
 import type {
+  Appointment,
   IntakeResponse,
+  PatientReportResponse,
   QueueEntry,
   QueueFilters,
   QueueSortKey,
@@ -404,10 +412,11 @@ interface QueueTableProps {
   refreshSignal?: number;
   searchQuery: string;
   activeStaff: StaffUser | null;
+  onAppointmentSaved?: (appointment: Appointment) => void;
   onStatusUpdated?: () => void;
 }
 
-export function QueueTable({ refreshSignal = 0, searchQuery, activeStaff, onStatusUpdated }: QueueTableProps) {
+export function QueueTable({ refreshSignal = 0, searchQuery, activeStaff, onAppointmentSaved, onStatusUpdated }: QueueTableProps) {
   const [entries, setEntries] = useState<QueueEntry[]>([]);
   const [doctors, setDoctors] = useState<StaffUser[]>([]);
   const [filters, setFilters] = useState<QueueFilters>({});
@@ -582,6 +591,23 @@ export function QueueTable({ refreshSignal = 0, searchQuery, activeStaff, onStat
     } finally {
       setUpdatingPatientId(null);
     }
+  };
+
+  const handleAssignDoctorFromIntake = async (intake: IntakeResponse, doctorId: string) => {
+    const entry = entries.find((item) => item.patientId === intake.patientId);
+    if (!entry) {
+      throw new Error('Patient is not in the active queue.');
+    }
+    await handleAssignDoctor(entry, doctorId);
+  };
+
+  const handleStatusChangeFromIntake = async (intake: IntakeResponse, status: QueueStatus) => {
+    const entry = entries.find((item) => item.patientId === intake.patientId);
+    if (!entry) {
+      throw new Error('Patient is not in the active queue.');
+    }
+    await handleStatusChange(entry, status);
+    setSelectedIntake((current) => current && current.intakeId === intake.intakeId ? { ...current, currentStatus: status } : current);
   };
 
   const handleRemoveFromQueue = async (entry: QueueEntry) => {
@@ -828,11 +854,16 @@ export function QueueTable({ refreshSignal = 0, searchQuery, activeStaff, onStat
           intake={selectedIntake}
           isLoading={isDetailLoading}
           error={detailError}
+          activeStaff={activeStaff}
+          doctors={doctors}
+          onAppointmentSaved={onAppointmentSaved}
+          onAssignDoctor={handleAssignDoctorFromIntake}
           onClose={() => {
             setSelectedIntake(null);
             setDetailError(null);
             setIsDetailLoading(false);
           }}
+          onStatusChange={handleStatusChangeFromIntake}
         />
       ) : null}
     </section>
@@ -1254,51 +1285,76 @@ function PatientTriageCard({
           ))}
         </select>
 
-        <select
-          value={entry.status}
-          disabled={isUpdating}
-          onChange={(event) => void onStatusChange(entry, event.target.value as QueueStatus)}
-          className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-800 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={`Status for ${entry.patientDisplayId}`}
-        >
-          {statusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-5 gap-2">
+          <IconStatusButton
+            label="Triage"
+            disabled={entry.status === 'IN_TRIAGE' || isClosed || isUpdating}
+            onClick={() => void onStatusChange(entry, 'IN_TRIAGE')}
+            icon={<ClipboardCheck size={15} aria-hidden="true" />}
+          />
           <button
             type="button"
             onClick={() => void onStatusChange(entry, 'IN_TREATMENT')}
             disabled={!canStart || isUpdating}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Start treatment"
           >
             <PlayCircle size={15} aria-hidden="true" />
-            Start
           </button>
           <button
             type="button"
             onClick={() => void onStatusChange(entry, 'DISCHARGED')}
             disabled={entry.status !== 'IN_TREATMENT' || isUpdating}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-emerald-700 text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Discharge"
           >
             <CheckCircle2 size={15} aria-hidden="true" />
-            Done
+          </button>
+          <button
+            type="button"
+            onClick={() => void onOpenEntry(entry)}
+            className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-800 shadow-sm transition hover:bg-slate-50"
+            title="Open patient"
+          >
+            <FileText size={15} aria-hidden="true" />
           </button>
           <button
             type="button"
             onClick={() => void onRemoveFromQueue(entry)}
             disabled={isUpdating}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-rose-200 bg-white px-2 text-sm font-medium text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-rose-200 bg-white text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Remove from queue"
           >
             <Trash2 size={15} aria-hidden="true" />
-            Remove
           </button>
         </div>
       </div>
     </article>
+  );
+}
+
+function IconStatusButton({
+  label,
+  disabled,
+  icon,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+      title={label}
+      aria-label={label}
+    >
+      {icon}
+    </button>
   );
 }
 
@@ -1334,17 +1390,40 @@ interface IntakeDetailDialogProps {
   intake: IntakeResponse | null;
   isLoading: boolean;
   error: string | null;
+  activeStaff: StaffUser | null;
+  doctors: StaffUser[];
+  onAppointmentSaved?: (appointment: Appointment) => void;
+  onAssignDoctor: (intake: IntakeResponse, doctorId: string) => Promise<void>;
   onClose: () => void;
+  onStatusChange: (intake: IntakeResponse, status: QueueStatus) => Promise<void>;
 }
 
-function IntakeDetailDialog({ intake, isLoading, error, onClose }: IntakeDetailDialogProps) {
+function IntakeDetailDialog({
+  intake,
+  isLoading,
+  error,
+  activeStaff,
+  doctors,
+  onAppointmentSaved,
+  onAssignDoctor,
+  onClose,
+  onStatusChange,
+}: IntakeDetailDialogProps) {
   const [thread, setThread] = useState<ThreadComment[]>([]);
   const [authorName, setAuthorName] = useState('Care team');
   const [commentBody, setCommentBody] = useState('');
   const [attachmentName, setAttachmentName] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [appointmentTime, setAppointmentTime] = useState('');
+  const [appointmentNote, setAppointmentNote] = useState('');
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [patientReport, setPatientReport] = useState<PatientReportResponse | null>(null);
+  const [prescriptionDraft, setPrescriptionDraft] = useState('');
   const [threadError, setThreadError] = useState<string | null>(null);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
+  const [isAssigningDoctor, setIsAssigningDoctor] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isSavingAppointment, setIsSavingAppointment] = useState(false);
 
   const loadThread = useCallback(async () => {
     if (!intake) {
@@ -1364,6 +1443,14 @@ function IntakeDetailDialog({ intake, isLoading, error, onClose }: IntakeDetailD
   useEffect(() => {
     void loadThread();
   }, [loadThread]);
+
+  useEffect(() => {
+    setSelectedDoctorId('');
+    setPatientReport(null);
+    setPrescriptionDraft('');
+    setAppointmentTime('');
+    setAppointmentNote('');
+  }, [intake?.intakeId]);
 
   const submitComment = async () => {
     if (!intake || commentBody.trim().length === 0) {
@@ -1386,6 +1473,84 @@ function IntakeDetailDialog({ intake, isLoading, error, onClose }: IntakeDetailD
     } catch (caughtError) {
       setThreadError(caughtError instanceof Error ? caughtError.message : 'Unable to add comment.');
     }
+  };
+
+  const assignDoctor = async () => {
+    if (!intake || !selectedDoctorId) {
+      return;
+    }
+    setIsAssigningDoctor(true);
+    setThreadError(null);
+    try {
+      await onAssignDoctor(intake, selectedDoctorId);
+      await loadThread();
+    } catch (caughtError) {
+      setThreadError(caughtError instanceof Error ? caughtError.message : 'Unable to assign doctor.');
+    } finally {
+      setIsAssigningDoctor(false);
+    }
+  };
+
+  const saveAppointment = async () => {
+    if (!intake || !appointmentTime) {
+      return;
+    }
+    setIsSavingAppointment(true);
+    setThreadError(null);
+    const appointment: Appointment = {
+      id: `${intake.intakeId}-${Date.now()}`,
+      patientId: intake.patientId,
+      intakeId: intake.intakeId,
+      patientDisplayId: intake.patientDisplayId,
+      department: intake.department,
+      startsAt: new Date(appointmentTime).toISOString(),
+      note: appointmentNote.trim() || 'Follow-up visit',
+    };
+    try {
+      onAppointmentSaved?.(appointment);
+      await createThreadComment(intake.intakeId, {
+        authorName: activeStaff?.displayName ?? 'Care team',
+        body: `Next visit scheduled for ${formatDateTime(appointment.startsAt)}. ${appointment.note}`,
+        attachments: [],
+      });
+      setAppointmentTime('');
+      setAppointmentNote('');
+      await loadThread();
+    } catch (caughtError) {
+      setThreadError(caughtError instanceof Error ? caughtError.message : 'Unable to save appointment.');
+    } finally {
+      setIsSavingAppointment(false);
+    }
+  };
+
+  const createReport = async () => {
+    if (!intake) {
+      return;
+    }
+    setIsGeneratingReport(true);
+    setThreadError(null);
+    try {
+      setPatientReport(await generatePatientReport(intake.intakeId));
+    } catch (caughtError) {
+      setThreadError(caughtError instanceof Error ? caughtError.message : 'Unable to generate report.');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const generatePrescriptionDraft = () => {
+    if (!intake) {
+      return;
+    }
+    setPrescriptionDraft(
+      [
+        `Prescription draft for ${intake.patientDisplayId}`,
+        `Complaint: ${intake.chiefComplaint}`,
+        `Urgency: ${intake.assessment ? `${intake.assessment.finalCategory} ${intake.assessment.finalScore}` : 'Not assessed'}`,
+        'Medication/orders: Clinician to complete after examination.',
+        'Follow-up: Add next visit date and safety-net instructions before signing.',
+      ].join('\n'),
+    );
   };
 
   return (
@@ -1467,6 +1632,100 @@ function IntakeDetailDialog({ intake, isLoading, error, onClose }: IntakeDetailD
                     ['Explanation', intake.assessment?.staffFacingExplanation ?? 'Not recorded'],
                   ]}
                 />
+              </DetailSection>
+
+              <DetailSection title="Patient actions">
+                <div className="grid gap-3">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <select
+                      value={selectedDoctorId}
+                      onChange={(event) => setSelectedDoctorId(event.target.value)}
+                      className="input-field mt-0"
+                      aria-label="Assign doctor"
+                    >
+                      <option value="">Assign doctor</option>
+                      {doctors.map((doctor) => (
+                        <option key={doctor.id} value={doctor.id}>
+                          {doctor.displayName} - {doctor.specialty ?? doctor.department ?? 'General'}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void assignDoctor()}
+                      disabled={!selectedDoctorId || isAssigningDoctor}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isAssigningDoctor ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Stethoscope size={15} aria-hidden="true" />}
+                      Assign
+                    </button>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                    <input
+                      type="datetime-local"
+                      value={appointmentTime}
+                      onChange={(event) => setAppointmentTime(event.target.value)}
+                      className="input-field mt-0"
+                      aria-label="Next visit date"
+                    />
+                    <input
+                      value={appointmentNote}
+                      onChange={(event) => setAppointmentNote(event.target.value)}
+                      className="input-field mt-0"
+                      placeholder="Visit note"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void saveAppointment()}
+                      disabled={!appointmentTime || isSavingAppointment}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-sky-200 bg-white px-3 text-sm font-medium text-slate-800 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSavingAppointment ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <CalendarDays size={15} aria-hidden="true" />}
+                      Visit
+                    </button>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <WorkflowButton icon={<FileText size={15} aria-hidden="true" />} disabled={isGeneratingReport} onClick={() => void createReport()}>
+                      {isGeneratingReport ? 'Generating' : 'Report'}
+                    </WorkflowButton>
+                    <WorkflowButton icon={<Pill size={15} aria-hidden="true" />} onClick={generatePrescriptionDraft}>
+                      Prescription
+                    </WorkflowButton>
+                    <WorkflowButton icon={<PlayCircle size={15} aria-hidden="true" />} onClick={() => void onStatusChange(intake, 'IN_TREATMENT')}>
+                      Treat
+                    </WorkflowButton>
+                  </div>
+
+                  {isGeneratingReport ? (
+                    <div className="rounded-md border border-emerald-200 bg-white p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
+                          <span className="absolute h-2 w-2 rounded-full bg-emerald-600 animate-orbit" />
+                          <FileText size={20} className="text-emerald-700" aria-hidden="true" />
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-950">Savi is writing the patient report</p>
+                          <p className="text-xs text-slate-500">Using intake, assessment, and queue context.</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {patientReport ? (
+                    <ReportPreview report={patientReport.report} aiBacked={patientReport.aiBacked} />
+                  ) : null}
+
+                  {prescriptionDraft ? (
+                    <textarea
+                      value={prescriptionDraft}
+                      onChange={(event) => setPrescriptionDraft(event.target.value)}
+                      className="input-field h-36 resize-y py-2"
+                      aria-label="Prescription draft"
+                    />
+                  ) : null}
+                </div>
               </DetailSection>
 
               <DetailSection title="Care thread">
@@ -1554,6 +1813,57 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
       <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
       <div className="mt-3">{children}</div>
     </section>
+  );
+}
+
+function WorkflowButton({
+  children,
+  disabled = false,
+  icon,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  icon: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-sky-200 bg-white px-3 text-sm font-medium text-slate-800 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function ReportPreview({ report, aiBacked }: { report: string; aiBacked: boolean }) {
+  return (
+    <div className="rounded-md border border-emerald-100 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-slate-950">Generated report</p>
+        <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+          {aiBacked ? 'LLM' : 'Fallback'}
+        </span>
+      </div>
+      <div className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+        {report.split('\n').filter(Boolean).map((line, index) => {
+          const heading = line.startsWith('#') ? line.replace(/^#+\s*/, '') : null;
+          return heading ? (
+            <p key={`${line}-${index}`} className="font-semibold text-slate-950">
+              {heading}
+            </p>
+          ) : (
+            <p key={`${line}-${index}`} className="whitespace-pre-wrap break-words">
+              {line}
+            </p>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

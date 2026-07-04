@@ -3,13 +3,10 @@ package com.careflowai.intake;
 import com.careflowai.agent.PatientAgentService;
 import com.careflowai.ai.AiAssessmentOutput;
 import com.careflowai.ai.AiAssessmentService;
-import com.careflowai.assessment.ScoreResult;
 import com.careflowai.assessment.UrgencyAssessment;
 import com.careflowai.assessment.UrgencyAssessmentRepository;
-import com.careflowai.assessment.UrgencyScoringService;
 import com.careflowai.assessment.dto.UrgencyAssessmentResponse;
 import com.careflowai.common.QueueStatus;
-import com.careflowai.common.UrgencyCategory;
 import com.careflowai.intake.dto.CreateIntakeRequest;
 import com.careflowai.intake.dto.IntakeResponse;
 import com.careflowai.patient.Patient;
@@ -35,7 +32,6 @@ public class IntakeService {
     private final PatientRepository patientRepository;
     private final IntakeRepository intakeRepository;
     private final UrgencyAssessmentRepository assessmentRepository;
-    private final UrgencyScoringService scoringService;
     private final AiAssessmentService aiAssessmentService;
     private final QueueService queueService;
     private final PatientAgentService patientAgentService;
@@ -46,7 +42,6 @@ public class IntakeService {
     public IntakeService(PatientRepository patientRepository,
                          IntakeRepository intakeRepository,
                          UrgencyAssessmentRepository assessmentRepository,
-                         UrgencyScoringService scoringService,
                          AiAssessmentService aiAssessmentService,
                          QueueService queueService,
                          PatientAgentService patientAgentService,
@@ -56,7 +51,6 @@ public class IntakeService {
         this.patientRepository = patientRepository;
         this.intakeRepository = intakeRepository;
         this.assessmentRepository = assessmentRepository;
-        this.scoringService = scoringService;
         this.aiAssessmentService = aiAssessmentService;
         this.queueService = queueService;
         this.patientAgentService = patientAgentService;
@@ -78,7 +72,7 @@ public class IntakeService {
         UrgencyAssessment assessment = createAssessment(patient, intake);
         QueueEntry queueEntry = queueService.upsertFromAssessment(patient, intake, assessment);
         patientAgentService.handleIntakeIngested(patient, intake, assessment, queueEntry, actor);
-        vectorStore.indexIntake(intake, assessment);
+        vectorStore.indexQueueEntry(queueEntry, assessment, assignmentSummary(patient));
         return IntakeResponse.from(intake, UrgencyAssessmentResponse.from(assessment));
     }
 
@@ -101,7 +95,8 @@ public class IntakeService {
         Intake intake = intakeRepository.findById(intakeId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Intake not found."));
         UrgencyAssessment assessment = createAssessment(intake.getPatient(), intake);
-        queueService.upsertFromAssessment(intake.getPatient(), intake, assessment);
+        QueueEntry queueEntry = queueService.upsertFromAssessment(intake.getPatient(), intake, assessment);
+        vectorStore.indexQueueEntry(queueEntry, assessment, assignmentSummary(intake.getPatient()));
         return IntakeResponse.from(intake, UrgencyAssessmentResponse.from(assessment));
     }
 
@@ -153,15 +148,13 @@ public class IntakeService {
 
     private UrgencyAssessment createAssessment(Patient patient, Intake intake) {
         AiAssessmentOutput advisory = aiAssessmentService.assess(intake);
-        ScoreResult fallback = scoringService.score(intake);
-        UrgencyCategory finalCategory = advisory.suggestedCategory() == null
-            ? UrgencyCategory.fromScore(fallback.score())
-            : advisory.suggestedCategory();
-        int finalScore = advisory.suggestedScore() == null
-            ? scoreForCategory(finalCategory, fallback.score())
-            : Math.max(0, Math.min(100, advisory.suggestedScore()));
-        UrgencyAssessment assessment = new UrgencyAssessment(patient, intake, finalCategory, finalScore);
-        assessment.replaceScoreFactors(scoreFactors(advisory, fallback));
+        if (advisory.suggestedCategory() == null || advisory.suggestedScore() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "LLM triage response did not include a usable urgency category and score.");
+        }
+        int finalScore = Math.max(0, Math.min(100, advisory.suggestedScore()));
+        UrgencyAssessment assessment = new UrgencyAssessment(patient, intake, advisory.suggestedCategory(), finalScore);
+        assessment.replaceScoreFactors(scoreFactors(advisory));
         assessment.attachAdvisoryOutput(
             advisory.suggestedDiagnosis(),
             advisory.suggestedCategory(),
@@ -176,30 +169,9 @@ public class IntakeService {
         return assessmentRepository.save(assessment);
     }
 
-    private int scoreForCategory(UrgencyCategory category, int fallbackScore) {
-        if (category == null) {
-            return fallbackScore;
-        }
-        return switch (category) {
-            case CRITICAL -> 95;
-            case HIGH -> 82;
-            case MEDIUM -> 55;
-            case LOW -> 22;
-        };
-    }
-
-    private List<String> scoreFactors(AiAssessmentOutput advisory, ScoreResult fallback) {
-        if (!advisory.hasUsableSuggestion()) {
-            return fallback.factors();
-        }
+    private List<String> scoreFactors(AiAssessmentOutput advisory) {
         List<String> factors = new java.util.ArrayList<>();
-        if (advisory.suggestedCategory() != null && advisory.suggestedScore() != null) {
-            factors.add("LLM triage assessment selected the final urgency category and score.");
-        } else if (advisory.suggestedCategory() != null) {
-            factors.add("LLM triage assessment selected the final urgency category; deterministic fallback supplied the score.");
-        } else {
-            factors.add("LLM triage assessment selected the final urgency score; the category was derived from that score.");
-        }
+        factors.add("LLM triage assessment selected the final urgency category and score.");
         if (!advisory.redFlagIndicators().isEmpty()) {
             factors.add("LLM red flags: " + String.join(", ", advisory.redFlagIndicators()));
         }
@@ -223,5 +195,15 @@ public class IntakeService {
             .filter(symptom -> symptom != null && !symptom.isBlank())
             .map(String::trim)
             .toList();
+    }
+
+    private String assignmentSummary(Patient patient) {
+        return patientAgentService.currentAssignment(patient.getId())
+            .map(assignment -> "Active doctor assignment: %s (%s). Reason: %s.".formatted(
+                assignment.getAssignedDoctor().getDisplayName(),
+                assignment.getAssignedDoctor().getStaffCode(),
+                assignment.getAssignmentReason()
+            ))
+            .orElse(null);
     }
 }
