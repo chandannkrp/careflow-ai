@@ -1,12 +1,14 @@
-import { AlertCircle, ClipboardPlus, RotateCcw, Save } from 'lucide-react';
+import { Activity, AlertCircle, ClipboardPlus, RotateCcw, Save, Stethoscope } from 'lucide-react';
 import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { createIntake } from '../../api/client';
+import { createIntake, getNextPatientDisplayId } from '../../api/client';
 import type {
   AgeBand,
   ArrivalMode,
   CreateIntakeRequest,
+  IntakeResponse,
   QueueStatus,
   RiskFlags,
+  StaffUser,
   Vitals,
 } from '../../types/careflow';
 
@@ -67,7 +69,6 @@ const defaultVitals: Vitals = {
 };
 
 interface IntakeFormState {
-  patientDisplayId: string;
   ageBand: AgeBand;
   arrivalTimestamp: string;
   arrivalMode: ArrivalMode;
@@ -79,12 +80,11 @@ interface IntakeFormState {
   riskFlags: RiskFlags;
   department: string;
   currentStatus: QueueStatus;
-  staffNotes: string;
-  staffName: string;
 }
 
 interface IntakeFormProps {
   departments: string[];
+  activeStaff: StaffUser | null;
   onCreated?: () => void;
 }
 
@@ -95,7 +95,6 @@ function toDateTimeLocalValue(date: Date) {
 
 function createInitialState(departments: string[]): IntakeFormState {
   return {
-    patientDisplayId: '',
     ageBand: 'ADULT',
     arrivalTimestamp: toDateTimeLocalValue(new Date()),
     arrivalMode: 'WALK_IN',
@@ -107,8 +106,6 @@ function createInitialState(departments: string[]): IntakeFormState {
     riskFlags: { ...emptyRiskFlags },
     department: departments[0] ?? 'Emergency',
     currentStatus: 'WAITING',
-    staffNotes: '',
-    staffName: 'INTAKE-01',
   };
 }
 
@@ -125,11 +122,20 @@ function normalizeOptionalText(value: string) {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
+function formatEnumLabel(value: string) {
+  return value
+    .split('_')
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+export function IntakeForm({ departments, activeStaff, onCreated }: IntakeFormProps) {
   const [form, setForm] = useState<IntakeFormState>(() => createInitialState(departments));
+  const [patientDisplayId, setPatientDisplayId] = useState('Generating...');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [createdIntake, setCreatedIntake] = useState<IntakeResponse | null>(null);
 
   const structuredSymptoms = useMemo(
     () =>
@@ -149,6 +155,18 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
       return { ...current, department: departments[0] };
     });
   }, [departments]);
+
+  const refreshPatientDisplayId = async () => {
+    try {
+      setPatientDisplayId(await getNextPatientDisplayId());
+    } catch {
+      setPatientDisplayId(`CF-${Date.now().toString().slice(-8)}`);
+    }
+  };
+
+  useEffect(() => {
+    void refreshPatientDisplayId();
+  }, []);
 
   const updateField = <TKey extends keyof IntakeFormState>(key: TKey, value: IntakeFormState[TKey]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -176,12 +194,14 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
 
   const resetForm = () => {
     setForm(createInitialState(departments));
+    void refreshPatientDisplayId();
     setError(null);
     setSuccessMessage(null);
+    setCreatedIntake(null);
   };
 
   const buildRequest = (): CreateIntakeRequest => ({
-    patientDisplayId: form.patientDisplayId.trim(),
+    patientDisplayId: patientDisplayId.startsWith('Generating') ? undefined : patientDisplayId,
     ageBand: form.ageBand,
     arrivalTimestamp: new Date(form.arrivalTimestamp).toISOString(),
     arrivalMode: form.arrivalMode,
@@ -193,8 +213,7 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
     riskFlags: form.riskFlags,
     department: form.department,
     currentStatus: form.currentStatus,
-    staffNotes: normalizeOptionalText(form.staffNotes),
-    staffName: normalizeOptionalText(form.staffName),
+    staffName: activeStaff?.staffCode ?? activeStaff?.displayName,
   });
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -205,8 +224,12 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
 
     try {
       const created = await createIntake(buildRequest());
-      setSuccessMessage(`${created.patientDisplayId} added to the queue.`);
+      setCreatedIntake(created);
+      setSuccessMessage(
+        `${created.patientDisplayId} added to the queue with LLM urgency ${created.assessment?.finalCategory ?? 'pending'}.`,
+      );
       setForm(createInitialState(departments));
+      await refreshPatientDisplayId();
       onCreated?.();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Unable to create intake.');
@@ -265,10 +288,46 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
+        {createdIntake?.assessment ? (
+          <div className="mt-5 min-w-0 rounded-lg border border-emerald-200 bg-white p-4 shadow-sm animate-message-in">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-700 text-white animate-soft-pulse">
+                <Stethoscope size={18} aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-950">LLM intake assessment</p>
+                <p className="mt-1 break-words text-sm leading-6 text-slate-600">
+                  {createdIntake.assessment.suggestedDiagnosis ?? 'No suggested diagnosis returned.'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-3">
+              <AssessmentTile
+                icon={<Activity size={16} aria-hidden="true" />}
+                label="Urgency"
+                value={`${formatEnumLabel(createdIntake.assessment.finalCategory)} - ${createdIntake.assessment.finalScore}`}
+              />
+              <AssessmentTile
+                icon={<ClipboardPlus size={16} aria-hidden="true" />}
+                label="Attention"
+                value={createdIntake.assessment.medicalAttentionNote ?? 'Not recorded'}
+              />
+              <AssessmentTile
+                icon={<AlertCircle size={16} aria-hidden="true" />}
+                label="Confidence"
+                value={formatEnumLabel(createdIntake.assessment.confidenceLevel)}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <FormBlock title="Patient and arrival">
             <div className="grid gap-3 sm:grid-cols-2">
-              <TextInput label="Patient display ID" value={form.patientDisplayId} onChange={handleTextChange('patientDisplayId')} required placeholder="ER-1048" />
+              <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-normal text-sky-700">Patient ID</p>
+                <p className="mt-1 text-lg font-semibold text-slate-950">{patientDisplayId}</p>
+              </div>
 
               <label className="text-sm font-medium text-slate-700">
                 Department
@@ -326,7 +385,7 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
           </FormBlock>
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <FormBlock title="Vitals">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <VitalInput label="Temp C" value={form.vitals.temperatureC} onChange={(value) => updateVitals('temperatureC', value)} step="0.1" />
@@ -357,13 +416,6 @@ export function IntakeForm({ departments, onCreated }: IntakeFormProps) {
             </div>
           </FormBlock>
         </div>
-
-        <FormBlock title="Staff" className="mt-4">
-          <div className="grid gap-3 lg:grid-cols-[1fr_2fr]">
-            <TextInput label="Staff name or code" value={form.staffName} onChange={handleTextChange('staffName')} placeholder="INTAKE-01" />
-            <TextInput label="Staff notes" value={form.staffNotes} onChange={handleTextChange('staffNotes')} />
-          </div>
-        </FormBlock>
       </form>
     </section>
   );
@@ -377,10 +429,22 @@ interface FormBlockProps {
 
 function FormBlock({ title, className = '', children }: FormBlockProps) {
   return (
-    <fieldset className={`rounded-lg border border-sky-100 bg-white p-4 shadow-sm ${className}`}>
+    <fieldset className={`min-w-0 rounded-lg border border-sky-100 bg-white p-4 shadow-sm ${className}`}>
       <legend className="px-1 text-sm font-semibold text-slate-900">{title}</legend>
       <div className="mt-3">{children}</div>
     </fieldset>
+  );
+}
+
+function AssessmentTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <dt className="flex items-center gap-2 text-xs font-semibold uppercase tracking-normal text-slate-500">
+        {icon}
+        {label}
+      </dt>
+      <dd className="mt-2 break-words text-sm leading-6 text-slate-800">{value}</dd>
+    </div>
   );
 }
 

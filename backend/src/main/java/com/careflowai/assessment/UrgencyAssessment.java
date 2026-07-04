@@ -65,6 +65,12 @@ public class UrgencyAssessment {
     private String structuredSymptomSummary;
 
     @Column(columnDefinition = "text")
+    private String suggestedDiagnosis;
+
+    @Column(columnDefinition = "text")
+    private String medicalAttentionNote;
+
+    @Column(columnDefinition = "text")
     private String staffFacingExplanation;
 
     @Enumerated(EnumType.STRING)
@@ -90,10 +96,11 @@ public class UrgencyAssessment {
         }
     }
 
-    public void attachAdvisoryOutput(UrgencyCategory suggestedCategory, Integer suggestedScore,
+    public void attachAdvisoryOutput(String suggestedDiagnosis, UrgencyCategory suggestedCategory, Integer suggestedScore,
                                      List<String> redFlagIndicators, List<String> missingOrAmbiguousDetails,
-                                     String structuredSymptomSummary, String staffFacingExplanation,
+                                     String structuredSymptomSummary, String medicalAttentionNote, String staffFacingExplanation,
                                      ConfidenceLevel confidenceLevel) {
+        this.suggestedDiagnosis = suggestedDiagnosis;
         this.suggestedCategory = suggestedCategory;
         this.suggestedScore = suggestedScore;
         this.redFlagIndicators.clear();
@@ -105,6 +112,7 @@ public class UrgencyAssessment {
             this.missingOrAmbiguousDetails.addAll(missingOrAmbiguousDetails);
         }
         this.structuredSymptomSummary = structuredSymptomSummary;
+        this.medicalAttentionNote = medicalAttentionNote;
         this.staffFacingExplanation = staffFacingExplanation;
         this.confidenceLevel = confidenceLevel;
     }
@@ -158,6 +166,14 @@ public class UrgencyAssessment {
 
     public String getStructuredSymptomSummary() {
         return structuredSymptomSummary;
+    }
+
+    public String getSuggestedDiagnosis() {
+        return suggestedDiagnosis;
+    }
+
+    public String getMedicalAttentionNote() {
+        return medicalAttentionNote;
     }
 
     public String getStaffFacingExplanation() {

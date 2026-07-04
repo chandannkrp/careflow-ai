@@ -46,6 +46,17 @@ export interface QueueEntry {
   status: QueueStatus;
   staffEscalated: boolean;
   waitingSince: string;
+  assignedDoctor: AssignedDoctor | null;
+}
+
+export interface AssignedDoctor {
+  id: string;
+  staffCode: string;
+  displayName: string;
+  department?: string;
+  specialty?: string;
+  assignmentReason: string;
+  assignedAt: string;
 }
 
 export interface UrgencyAssessment {
@@ -58,6 +69,8 @@ export interface UrgencyAssessment {
   redFlagIndicators: string[];
   missingOrAmbiguousDetails: string[];
   structuredSymptomSummary: string | null;
+  suggestedDiagnosis: string | null;
+  medicalAttentionNote: string | null;
   staffFacingExplanation: string | null;
   confidenceLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   assessedAt: string;
@@ -84,7 +97,7 @@ export interface IntakeResponse {
 }
 
 export interface CreateIntakeRequest {
-  patientDisplayId: string;
+  patientDisplayId?: string;
   ageBand: AgeBand;
   arrivalTimestamp?: string;
   arrivalMode: ArrivalMode;
@@ -180,6 +193,19 @@ export interface UpdatePlacementRequest {
   actorRole: StaffRole;
 }
 
+export interface AssignDoctorRequest {
+  doctorLookup: string;
+  actorName?: string;
+  actorRole?: StaffRole;
+  note?: string;
+}
+
+export interface RemoveQueueEntryRequest {
+  actorName?: string;
+  actorRole?: StaffRole;
+  reason?: string;
+}
+
 export interface QueueMetrics {
   currentQueueSize: number;
   criticalAndHighWaiting: number;
@@ -239,4 +265,45 @@ export interface PatientTimelineEvent {
 export interface AgentDashboard {
   flashcards: PatientFlashcard[];
   timeline: PatientTimelineEvent[];
+}
+
+export interface AllocationSummary {
+  filledBeds: number;
+  vacantBeds: number;
+  filledDoctors: number;
+  vacantDoctors: number;
+}
+
+export interface BedAllocation {
+  id: string;
+  department: string;
+  label: string;
+  filled: boolean;
+  patientId: string | null;
+  patientDisplayId: string | null;
+  chiefComplaint: string | null;
+  urgencyCategory: UrgencyCategory | null;
+  status: QueueStatus | null;
+  waitingMinutes: number;
+}
+
+export interface DoctorAllocation {
+  doctorId: string;
+  staffCode: string;
+  displayName: string;
+  department?: string;
+  specialty?: string;
+  filled: boolean;
+  patientId: string | null;
+  patientDisplayId: string | null;
+  patientStatus: QueueStatus | null;
+  urgencyCategory: UrgencyCategory | null;
+  assignmentReason: string | null;
+  assignedAt: string | null;
+}
+
+export interface HospitalAllocation {
+  summary: AllocationSummary;
+  beds: BedAllocation[];
+  doctors: DoctorAllocation[];
 }

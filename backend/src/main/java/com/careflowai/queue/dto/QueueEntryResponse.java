@@ -1,5 +1,6 @@
 package com.careflowai.queue.dto;
 
+import com.careflowai.agent.CareTeamAssignment;
 import com.careflowai.common.QueueStatus;
 import com.careflowai.common.UrgencyCategory;
 import com.careflowai.queue.QueueEntry;
@@ -20,9 +21,14 @@ public record QueueEntryResponse(
     String department,
     QueueStatus status,
     boolean staffEscalated,
-    Instant waitingSince
+    Instant waitingSince,
+    AssignedDoctorResponse assignedDoctor
 ) {
     public static QueueEntryResponse from(QueueEntry entry, Instant now) {
+        return from(entry, now, null);
+    }
+
+    public static QueueEntryResponse from(QueueEntry entry, Instant now, CareTeamAssignment assignment) {
         long waitingMinutes = Math.max(0, Duration.between(entry.getWaitingSince(), now).toMinutes());
         return new QueueEntryResponse(
             entry.getPatient().getId(),
@@ -37,7 +43,8 @@ public record QueueEntryResponse(
             entry.getDepartment(),
             entry.getStatus(),
             entry.isStaffEscalated(),
-            entry.getWaitingSince()
+            entry.getWaitingSince(),
+            AssignedDoctorResponse.from(assignment)
         );
     }
 

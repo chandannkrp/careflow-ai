@@ -24,6 +24,8 @@ public interface StaffUserRepository extends JpaRepository<StaffUser, UUID> {
 
     Optional<StaffUser> findFirstByRoleAndActiveTrueOrderByCreatedAtAsc(StaffRole role);
 
+    List<StaffUser> findByRoleAndActiveTrueOrderByCreatedAtAsc(StaffRole role);
+
     List<StaffUser> findByRoleOrderByCreatedAtDesc(StaffRole role);
 
     List<StaffUser> findByDepartmentIgnoreCaseOrderByCreatedAtDesc(String department);

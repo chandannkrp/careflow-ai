@@ -1,11 +1,24 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
   application:
     name: careflow-ai
+  ai:
+    openai-sdk:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-5-mini}
+      embedding:
+        options:
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://ep-holy-rice-aize7iph.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require}
+    url: ${DATABASE_URL}
     driver-class-name: org.postgresql.Driver
-    username: ${DATABASE_USER:neondb_owner}
-    password: ${DATABASE_PASSWORD:npg_kGOdH9stB6Np}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
     
   jpa:
     hibernate:
@@ -19,7 +32,7 @@ spring:
       accept-case-insensitive-enums: true
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT}
 
 management:
   endpoints:
@@ -31,7 +44,19 @@ management:
       probes:
         enabled: true
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    operations-sorter: method
+    tags-sorter: alpha
+
 openai:
-  enabled: ${OPENAI_ENABLED:true}
-  api-key: ${OPENAI_API_KEY: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}
-  model: ${OPENAI_MODEL:gpt-4.1-mini}
+  enabled: ${OPENAI_ENABLED}
+  api-key: ${OPENAI_API_KEY}
+  model: ${OPENAI_MODEL}
+
+ai-service:
+  url: ${AI_SERVICE_URL:}

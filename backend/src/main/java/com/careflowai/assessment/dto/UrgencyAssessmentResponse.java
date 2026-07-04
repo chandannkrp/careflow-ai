@@ -18,6 +18,8 @@ public record UrgencyAssessmentResponse(
     List<String> redFlagIndicators,
     List<String> missingOrAmbiguousDetails,
     String structuredSymptomSummary,
+    String suggestedDiagnosis,
+    String medicalAttentionNote,
     String staffFacingExplanation,
     ConfidenceLevel confidenceLevel,
     Instant assessedAt
@@ -33,6 +35,8 @@ public record UrgencyAssessmentResponse(
             new ArrayList<>(assessment.getRedFlagIndicators()),
             new ArrayList<>(assessment.getMissingOrAmbiguousDetails()),
             assessment.getStructuredSymptomSummary(),
+            assessment.getSuggestedDiagnosis(),
+            assessment.getMedicalAttentionNote(),
             assessment.getStaffFacingExplanation(),
             assessment.getConfidenceLevel(),
             assessment.getAssessedAt()

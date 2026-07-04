@@ -14,41 +14,58 @@ import org.springframework.stereotype.Service;
 public class AiAssessmentService {
 
     private static final String INSTRUCTION = """
-        You are an administrative triage support assistant for a hospital queue MVP.
-        You do not diagnose or recommend treatment. Return only compact JSON with:
-        suggestedCategory, suggestedScore, redFlagIndicators, missingOrAmbiguousDetails,
-        structuredSymptomSummary, staffFacingExplanation, confidenceLevel.
-        Categories are CRITICAL, HIGH, MEDIUM, LOW. Confidence is LOW, MEDIUM, HIGH.
+        You are a hospital triage support assistant for intake routing.
+        Return only compact JSON with no markdown and these fields:
+        suggestedDiagnosis, suggestedCategory, suggestedScore, redFlagIndicators,
+        missingOrAmbiguousDetails, structuredSymptomSummary, medicalAttentionNote,
+        staffFacingExplanation, confidenceLevel.
+        suggestedDiagnosis is a brief likely clinical concern or differential label, not a final diagnosis.
+        suggestedCategory is the urgency level and must be one of CRITICAL, HIGH, MEDIUM, LOW.
+        suggestedScore is a 0-100 queue severity score consistent with the category.
+        medicalAttentionNote is one short staff note about the attention needed next.
+        Do not prescribe medications or treatment plans. Confidence is LOW, MEDIUM, HIGH.
         """;
 
     private final OpenAiResponsesClient responsesClient;
+    private final SpringAiChatService springAiChatService;
     private final ObjectMapper objectMapper;
 
-    public AiAssessmentService(OpenAiResponsesClient responsesClient, ObjectMapper objectMapper) {
+    public AiAssessmentService(OpenAiResponsesClient responsesClient,
+                               SpringAiChatService springAiChatService,
+                               ObjectMapper objectMapper) {
         this.responsesClient = responsesClient;
+        this.springAiChatService = springAiChatService;
         this.objectMapper = objectMapper;
     }
 
     public AiAssessmentOutput assess(Intake intake) {
-        if (!responsesClient.isAvailable()) {
-            return AiAssessmentOutput.unavailable();
-        }
-
         try {
-            String response = responsesClient.respond(INSTRUCTION, objectMapper.writeValueAsString(payload(intake)));
-            JsonNode json = objectMapper.readTree(extractJson(response));
-            return new AiAssessmentOutput(
-                parseCategory(json.path("suggestedCategory").asText(null)),
-                json.path("suggestedScore").isNumber() ? json.path("suggestedScore").asInt() : null,
-                stringList(json.path("redFlagIndicators")),
-                stringList(json.path("missingOrAmbiguousDetails")),
-                json.path("structuredSymptomSummary").asText(null),
-                json.path("staffFacingExplanation").asText(null),
-                parseConfidence(json.path("confidenceLevel").asText(null))
-            );
-        } catch (Exception ignored) {
-            return AiAssessmentOutput.unavailable();
+            return parseResponse(springAiChatService.respond(INSTRUCTION, objectMapper.writeValueAsString(payload(intake))));
+        } catch (Exception springAiFailure) {
+            if (!responsesClient.isAvailable()) {
+                return AiAssessmentOutput.unavailable();
+            }
+            try {
+                return parseResponse(responsesClient.respond(INSTRUCTION, objectMapper.writeValueAsString(payload(intake))));
+            } catch (Exception ignored) {
+                return AiAssessmentOutput.unavailable();
+            }
         }
+    }
+
+    private AiAssessmentOutput parseResponse(String response) throws java.io.IOException {
+        JsonNode json = objectMapper.readTree(extractJson(response));
+        return new AiAssessmentOutput(
+            cleanText(json.path("suggestedDiagnosis").asText(null)),
+            parseCategory(json.path("suggestedCategory").asText(null)),
+            json.path("suggestedScore").isNumber() ? json.path("suggestedScore").asInt() : null,
+            stringList(json.path("redFlagIndicators")),
+            stringList(json.path("missingOrAmbiguousDetails")),
+            cleanText(json.path("structuredSymptomSummary").asText(null)),
+            cleanText(json.path("medicalAttentionNote").asText(null)),
+            cleanText(json.path("staffFacingExplanation").asText(null)),
+            parseConfidence(json.path("confidenceLevel").asText(null))
+        );
     }
 
     private Map<String, Object> payload(Intake intake) {
@@ -73,6 +90,10 @@ public class AiAssessmentService {
             return response.substring(first, last + 1);
         }
         return response;
+    }
+
+    private String cleanText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private List<String> stringList(JsonNode node) {

@@ -1,0 +1,9 @@
+backend/src/main/resources/application.yml
+.env
+target/
+backend/target/careflow-ai-0.1.0-SNAPSHOT.jar
+ai-service/.env
+ai-service/.venv/
+ai-service/__pycache__/
+ai-service/app/__pycache__/
+ai-service/data/

@@ -13,13 +13,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class AiController {
 
     private final AiChatService aiChatService;
+    private final SpringAiChatService springAiChatService;
 
-    public AiController(AiChatService aiChatService) {
+    public AiController(AiChatService aiChatService, SpringAiChatService springAiChatService) {
         this.aiChatService = aiChatService;
+        this.springAiChatService = springAiChatService;
     }
 
     @PostMapping("/chat")
     public AiChatResponse chat(@Valid @RequestBody AiChatRequest request) {
         return aiChatService.chat(request);
+    }
+
+    @PostMapping("/test-chat")
+    public AiChatResponse testChat(@Valid @RequestBody AiChatRequest request) {
+        return springAiChatService.chat(request);
     }
 }

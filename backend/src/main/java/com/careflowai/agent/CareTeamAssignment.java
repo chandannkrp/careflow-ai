@@ -87,6 +87,10 @@ public class CareTeamAssignment {
         return active;
     }
 
+    public void deactivate() {
+        this.active = false;
+    }
+
     public Instant getAssignedAt() {
         return assignedAt;
     }

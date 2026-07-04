@@ -1,14 +1,17 @@
 import type {
   AgentDashboard,
+  AssignDoctorRequest,
   AiChatRequest,
   AiChatResponse,
   CreateThreadCommentRequest,
   CreateIntakeRequest,
   IntakeResponse,
+  HospitalAllocation,
   QueueMetrics,
   QueueEntry,
   QueueFilters,
   SaveStaffUserRequest,
+  RemoveQueueEntryRequest,
   SaveSystemAgentRequest,
   StaffUser,
   SystemAgent,
@@ -83,6 +86,11 @@ export function createIntake(request: CreateIntakeRequest) {
   });
 }
 
+export async function getNextPatientDisplayId() {
+  const response = await apiRequest<{ patientDisplayId: string }>('/api/intakes/next-patient-display-id');
+  return response.patientDisplayId;
+}
+
 export function getIntake(intakeId: string) {
   return apiRequest<IntakeResponse>(`/api/intakes/${intakeId}`);
 }
@@ -97,6 +105,20 @@ export function updateQueueStatus(patientId: string, request: UpdateQueueStatusR
 export function updateQueuePlacement(patientId: string, request: UpdatePlacementRequest) {
   return apiRequest<QueueEntry>(`/api/queue/${patientId}/placement`, {
     method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+export function assignQueueDoctor(patientId: string, request: AssignDoctorRequest) {
+  return apiRequest<QueueEntry>(`/api/queue/${patientId}/doctor`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+export function removeQueueEntry(patientId: string, request: RemoveQueueEntryRequest) {
+  return apiRequest<void>(`/api/queue/${patientId}`, {
+    method: 'DELETE',
     body: JSON.stringify(request),
   });
 }
@@ -170,6 +192,10 @@ export function getQueueMetrics() {
   return apiRequest<QueueMetrics>('/api/metrics/queue');
 }
 
+export function getHospitalAllocation() {
+  return apiRequest<HospitalAllocation>('/api/allocation');
+}
+
 export function getAgentDashboard(staffLookup?: string, department?: string) {
   const params = new URLSearchParams();
 
@@ -207,6 +233,14 @@ export function sendAiChatMessage(request: AiChatRequest) {
   return apiRequest<AiChatResponse>('/api/ai/chat', {
     method: 'POST',
     body: JSON.stringify(request),
-    timeoutMs: 5000,
+    timeoutMs: 45000,
+  });
+}
+
+export function sendAiTestChatMessage(request: AiChatRequest) {
+  return apiRequest<AiChatResponse>('/api/ai/test-chat', {
+    method: 'POST',
+    body: JSON.stringify(request),
+    timeoutMs: 45000,
   });
 }

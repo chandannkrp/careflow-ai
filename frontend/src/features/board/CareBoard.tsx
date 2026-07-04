@@ -19,14 +19,14 @@ function formatWait(minutes: number) {
 
 export function CareBoard({ departments }: { departments: string[] }) {
   const [entries, setEntries] = useState<QueueEntry[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState(departments[0] ?? 'Emergency');
+  const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [draggedPatientId, setDraggedPatientId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selectedDepartment && departments.length > 0) {
-      setSelectedDepartment(departments[0]);
+    if (!selectedDepartment) {
+      setSelectedDepartment('All');
     }
   }, [departments, selectedDepartment]);
 
@@ -47,7 +47,10 @@ export function CareBoard({ departments }: { departments: string[] }) {
   }, [loadEntries]);
 
   const visibleEntries = useMemo(
-    () => entries.filter((entry) => entry.department.toLowerCase() === selectedDepartment.toLowerCase()),
+    () =>
+      selectedDepartment === 'All'
+        ? entries
+        : entries.filter((entry) => entry.department.toLowerCase() === selectedDepartment.toLowerCase()),
     [entries, selectedDepartment],
   );
 
@@ -57,9 +60,13 @@ export function CareBoard({ departments }: { departments: string[] }) {
     }
     setError(null);
     try {
+      const draggedEntry = entries.find((entry) => entry.patientId === draggedPatientId);
+      const targetDepartment = selectedDepartment === 'All'
+        ? draggedEntry?.department ?? departments[0] ?? 'Emergency'
+        : selectedDepartment;
       const updated = await updateQueuePlacement(draggedPatientId, {
         status,
-        department,
+        department: targetDepartment,
         actorName: 'Care Board',
         actorRole: 'TRIAGE_NURSE',
       });
@@ -91,6 +98,7 @@ export function CareBoard({ departments }: { departments: string[] }) {
             onChange={(event) => setSelectedDepartment(event.target.value)}
             className="h-10 rounded-md border border-sky-200 bg-white px-3 text-sm text-slate-800 shadow-sm"
           >
+            <option value="All">All departments</option>
             {departments.map((department) => (
               <option key={department} value={department}>
                 {department}

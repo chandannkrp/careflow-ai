@@ -1,5 +1,7 @@
 package com.careflowai.agent;
 
+import com.careflowai.ai.AiDoctorAssignmentOutput;
+import com.careflowai.ai.AiDoctorAssignmentService;
 import com.careflowai.assessment.UrgencyAssessment;
 import com.careflowai.common.QueueStatus;
 import com.careflowai.common.StaffRole;
@@ -15,6 +17,7 @@ import com.careflowai.staff.StaffUser;
 import com.careflowai.staff.StaffUserRepository;
 import com.careflowai.staff.StaffUserService;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,32 +39,35 @@ public class PatientAgentService {
     private final StaffUserRepository staffUserRepository;
     private final StaffUserService staffUserService;
     private final SystemAgentService systemAgentService;
+    private final AiDoctorAssignmentService aiDoctorAssignmentService;
 
     public PatientAgentService(CareTeamAssignmentRepository assignmentRepository,
                                PatientFlashcardRepository flashcardRepository,
                                PatientTimelineEventRepository timelineRepository,
                                StaffUserRepository staffUserRepository,
                                StaffUserService staffUserService,
-                               SystemAgentService systemAgentService) {
+                               SystemAgentService systemAgentService,
+                               AiDoctorAssignmentService aiDoctorAssignmentService) {
         this.assignmentRepository = assignmentRepository;
         this.flashcardRepository = flashcardRepository;
         this.timelineRepository = timelineRepository;
         this.staffUserRepository = staffUserRepository;
         this.staffUserService = staffUserService;
         this.systemAgentService = systemAgentService;
+        this.aiDoctorAssignmentService = aiDoctorAssignmentService;
     }
 
     @Transactional
     public void handleIntakeIngested(Patient patient, Intake intake, UrgencyAssessment assessment, QueueEntry queueEntry,
                                      StaffUser intakeActor) {
-        StaffUser assignedDoctor = systemAgentService.isActive("ASSIGNMENT_AGENT")
-            ? resolveAssignedDoctor(intake, intakeActor)
-            : intakeActor;
+        AssignmentDecision assignmentDecision = systemAgentService.isActive("ASSIGNMENT_AGENT")
+            ? resolveAssignedDoctor(intake, assessment, intakeActor)
+            : new AssignmentDecision(intakeActor, "Assignment Agent inactive; intake actor retained.");
         CareTeamAssignment assignment = assignmentRepository.save(new CareTeamAssignment(
             patient,
             intake,
-            assignedDoctor,
-            "Matched by department and queue urgency after intake ingestion."
+            assignmentDecision.doctor(),
+            assignmentDecision.reason()
         ));
 
         appendEvent(patient, intake, intakeActor, "INTAKE_INGESTED", "Intake ingested",
@@ -75,8 +81,12 @@ public class PatientAgentService {
                 ), "AGENT");
         }
         if (systemAgentService.isActive("NOTIFICATION_AGENT")) {
-            appendEvent(patient, intake, assignedDoctor, "DOCTOR_ASSIGNED", "Doctor assigned",
-                "Notification Agent assigned %s to %s.".formatted(assignedDoctor.getDisplayName(), patient.getDisplayId()), "AGENT");
+            appendEvent(patient, intake, assignmentDecision.doctor(), "DOCTOR_ASSIGNED", "Doctor assigned",
+                "Notification Agent assigned %s to %s. %s".formatted(
+                    assignmentDecision.doctor().getDisplayName(),
+                    patient.getDisplayId(),
+                    assignmentDecision.reason()
+                ), "AGENT");
         }
 
         refreshFlashcards(patient, intake, queueEntry, assignment, intakeActor);
@@ -92,6 +102,45 @@ public class PatientAgentService {
             "%s moved %s to %s.".formatted(displayName(actor), entry.getPatient().getDisplayId(), entry.getStatus()),
             "STAFF");
         refreshFlashcardsForEntry(entry, actor);
+    }
+
+    @Transactional
+    public CareTeamAssignment assignDoctor(QueueEntry entry, StaffUser doctor, StaffUser actor, String note) {
+        assignmentRepository.findByPatientIdAndActiveTrue(entry.getPatient().getId())
+            .forEach(CareTeamAssignment::deactivate);
+        String reason = StringUtils.hasText(note)
+            ? truncate(note.trim())
+            : truncate("%s assigned %s to %s from the queue.".formatted(
+                displayName(actor),
+                doctor.getDisplayName(),
+                entry.getPatient().getDisplayId()
+            ));
+        CareTeamAssignment assignment = assignmentRepository.save(new CareTeamAssignment(
+            entry.getPatient(),
+            entry.getIntake(),
+            doctor,
+            reason
+        ));
+        appendEvent(entry.getPatient(), entry.getIntake(), actor, "DOCTOR_ASSIGNED", "Doctor assigned",
+            "%s assigned %s to %s.".formatted(displayName(actor), doctor.getDisplayName(), entry.getPatient().getDisplayId()),
+            "STAFF");
+        refreshFlashcards(entry.getPatient(), entry.getIntake(), entry, assignment, actor);
+        return assignment;
+    }
+
+    @Transactional
+    public void handleRemovedFromQueue(QueueEntry entry, StaffUser actor, String reason) {
+        assignmentRepository.findByPatientIdAndActiveTrue(entry.getPatient().getId())
+            .forEach(CareTeamAssignment::deactivate);
+        String detail = StringUtils.hasText(reason) ? reason.trim() : "No reason recorded.";
+        appendEvent(entry.getPatient(), entry.getIntake(), actor, "QUEUE_REMOVED", "Removed from queue",
+            "%s removed %s from the queue. %s".formatted(displayName(actor), entry.getPatient().getDisplayId(), detail),
+            "STAFF");
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<CareTeamAssignment> currentAssignment(UUID patientId) {
+        return assignmentRepository.findTopByPatientIdAndActiveTrueOrderByAssignedAtDesc(patientId);
     }
 
     @Transactional
@@ -158,8 +207,8 @@ public class PatientAgentService {
             .orElseGet(() -> assignmentRepository.save(new CareTeamAssignment(
                 entry.getPatient(),
                 entry.getIntake(),
-                resolveAssignedDoctor(entry.getIntake(), actor),
-                "Matched by department after queue event."
+                resolveAssignedDoctor(entry.getIntake(), null, actor).doctor(),
+                "LLM assignment refreshed after queue event."
             )));
         refreshFlashcards(entry.getPatient(), entry.getIntake(), entry, assignment, actor);
     }
@@ -206,24 +255,49 @@ public class PatientAgentService {
         flashcardRepository.save(intakeCard);
     }
 
-    private StaffUser resolveAssignedDoctor(Intake intake, StaffUser fallbackActor) {
-        String specialty = inferSpecialty(intake);
-        return staffUserRepository
-            .findFirstByRoleAndDepartmentIgnoreCaseAndSpecialtyIgnoreCaseAndActiveTrueOrderByCreatedAtAsc(
-                StaffRole.DOCTOR,
-                intake.getDepartment(),
-                specialty
-            )
-            .or(() -> staffUserRepository.findFirstByRoleAndDepartmentIgnoreCaseAndActiveTrueOrderByCreatedAtAsc(
-                StaffRole.DOCTOR,
-                intake.getDepartment()
-            ))
-            .or(() -> staffUserRepository.findFirstByRoleAndActiveTrueOrderByCreatedAtAsc(StaffRole.DOCTOR))
-            .or(() -> staffUserRepository.findFirstByRoleAndDepartmentIgnoreCaseAndActiveTrueOrderByCreatedAtAsc(
-                StaffRole.CHARGE_NURSE,
-                intake.getDepartment()
-            ))
+    private AssignmentDecision resolveAssignedDoctor(Intake intake, UrgencyAssessment assessment, StaffUser fallbackActor) {
+        List<StaffUser> activeDoctors = staffUserRepository.findByRoleAndActiveTrueOrderByCreatedAtAsc(StaffRole.DOCTOR);
+        return aiDoctorAssignmentService.recommend(intake, assessment, activeDoctors)
+            .flatMap(recommendation -> activeDoctors.stream()
+                .filter(doctor -> doctor.getStaffCode().equalsIgnoreCase(recommendation.staffCode()))
+                .findFirst()
+                .map(doctor -> new AssignmentDecision(doctor, assignmentReason(doctor, recommendation))))
+            .orElseGet(() -> fallbackAssignment(intake, activeDoctors, fallbackActor));
+    }
+
+    private AssignmentDecision fallbackAssignment(Intake intake, List<StaffUser> activeDoctors, StaffUser fallbackActor) {
+        StaffUser fallbackDoctor = activeDoctors.stream()
+            .filter(doctor -> sameText(doctor.getDepartment(), intake.getDepartment()))
+            .findFirst()
+            .or(() -> activeDoctors.stream().findFirst())
             .orElse(fallbackActor);
+        if (fallbackDoctor == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No active doctor is available for assignment.");
+        }
+        return new AssignmentDecision(
+            fallbackDoctor,
+            "Fallback assignment used because the LLM doctor recommendation was unavailable."
+        );
+    }
+
+    private String assignmentReason(StaffUser doctor, AiDoctorAssignmentOutput recommendation) {
+        String specialty = StringUtils.hasText(doctor.getSpecialty()) ? doctor.getSpecialty() : "available specialty";
+        String reason = StringUtils.hasText(recommendation.assignmentReason())
+            ? recommendation.assignmentReason().trim()
+            : "selected from the active doctor roster";
+        return truncate("LLM Assignment Agent selected %s (%s): %s".formatted(
+            doctor.getDisplayName(),
+            specialty,
+            reason
+        ));
+    }
+
+    private boolean sameText(String first, String second) {
+        return StringUtils.hasText(first) && StringUtils.hasText(second) && first.equalsIgnoreCase(second);
+    }
+
+    private String truncate(String value) {
+        return value.length() <= 500 ? value : value.substring(0, 497) + "...";
     }
 
     private String discoveryBrief(Intake intake, QueueEntry queueEntry) {
@@ -285,30 +359,6 @@ public class PatientAgentService {
 
     private String valueOrUnknown(Object value) {
         return value == null ? "unknown" : String.valueOf(value);
-    }
-
-    private String inferSpecialty(Intake intake) {
-        String signal = (intake.getChiefComplaint() + " " + String.join(" ", intake.getStructuredSymptoms()) + " "
-            + String.valueOf(intake.getSymptomNotes())).toLowerCase();
-        if (intake.getRiskFlags().isChestPain() || signal.contains("chest") || signal.contains("cardiac")
-            || signal.contains("heart")) {
-            return "Cardiology";
-        }
-        if (intake.getRiskFlags().isPediatricRisk() || signal.contains("child") || signal.contains("pediatric")) {
-            return "Pediatrics";
-        }
-        if (intake.getRiskFlags().isFallOrTrauma() || signal.contains("fracture") || signal.contains("fall")
-            || signal.contains("trauma") || signal.contains("bone")) {
-            return "Orthopedics";
-        }
-        if (intake.getRiskFlags().isBreathingDifficulty() || signal.contains("breath") || signal.contains("asthma")
-            || signal.contains("oxygen")) {
-            return "Pulmonology";
-        }
-        if (intake.getRiskFlags().isPregnancy() || signal.contains("pregnan")) {
-            return "Obstetrics";
-        }
-        return "Emergency Medicine";
     }
 
     private void appendEvent(Patient patient, Intake intake, StaffUser actor, String eventType, String title,
@@ -387,5 +437,8 @@ public class PatientAgentService {
 
     private String displayName(StaffUser staffUser) {
         return staffUser == null ? "CareFlow Agent" : staffUser.getDisplayName();
+    }
+
+    private record AssignmentDecision(StaffUser doctor, String reason) {
     }
 }

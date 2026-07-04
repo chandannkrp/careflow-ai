@@ -1,5 +1,6 @@
 package com.careflowai.queue;
 
+import com.careflowai.agent.CareTeamAssignment;
 import com.careflowai.agent.PatientAgentService;
 import com.careflowai.assessment.UrgencyAssessment;
 import com.careflowai.common.QueueStatus;
@@ -7,8 +8,10 @@ import com.careflowai.common.StaffRole;
 import com.careflowai.common.UrgencyCategory;
 import com.careflowai.intake.Intake;
 import com.careflowai.patient.Patient;
+import com.careflowai.queue.dto.AssignDoctorRequest;
 import com.careflowai.queue.dto.OverridePriorityRequest;
 import com.careflowai.queue.dto.QueueEntryResponse;
+import com.careflowai.queue.dto.RemoveQueueEntryRequest;
 import com.careflowai.queue.dto.UpdatePlacementRequest;
 import com.careflowai.queue.dto.UpdateStatusRequest;
 import com.careflowai.staff.StaffUser;
@@ -58,7 +61,7 @@ public class QueueService {
             .filter(entry -> category == null || entry.getUrgencyCategory() == category)
             .filter(entry -> !StringUtils.hasText(department) || entry.getDepartment().equalsIgnoreCase(department))
             .filter(entry -> status == null || entry.getStatus() == status)
-            .map(entry -> QueueEntryResponse.from(entry, now))
+            .map(entry -> QueueEntryResponse.from(entry, now, patientAgentService.currentAssignment(entry.getPatient().getId()).orElse(null)))
             .toList();
     }
 
@@ -112,7 +115,7 @@ public class QueueService {
         entry.applyStaffOverride(request.newCategory(), request.newScore());
         QueueEntry saved = queueEntryRepository.save(entry);
         patientAgentService.handlePriorityOverridden(saved, actor);
-        return QueueEntryResponse.from(saved, Instant.now());
+        return toResponse(saved);
     }
 
     @Transactional
@@ -127,7 +130,7 @@ public class QueueService {
         entry.updateStatus(request.status());
         QueueEntry saved = queueEntryRepository.save(entry);
         patientAgentService.handleStatusChanged(saved, actor);
-        return QueueEntryResponse.from(saved, Instant.now());
+        return toResponse(saved);
     }
 
     @Transactional
@@ -142,11 +145,43 @@ public class QueueService {
         entry.updatePlacement(request.status(), request.department().trim());
         QueueEntry saved = queueEntryRepository.save(entry);
         patientAgentService.handleStatusChanged(saved, actor);
-        return QueueEntryResponse.from(saved, Instant.now());
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public QueueEntryResponse assignDoctor(UUID patientId, AssignDoctorRequest request) {
+        StaffUser actor = staffUserService.resolveActor(request.actorName(), request.actorRole(), null);
+        StaffUser doctor = staffUserService.getByLookup(request.doctorLookup());
+        if (doctor.getRole() != StaffRole.DOCTOR || !doctor.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned staff member must be an active doctor.");
+        }
+        QueueEntry entry = queueEntryRepository.findByPatientId(patientId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Queue entry not found."));
+        CareTeamAssignment assignment = patientAgentService.assignDoctor(entry, doctor, actor, request.note());
+        return QueueEntryResponse.from(entry, Instant.now(), assignment);
+    }
+
+    @Transactional
+    public void removeFromQueue(UUID patientId, RemoveQueueEntryRequest request) {
+        RemoveQueueEntryRequest safeRequest = request == null ? new RemoveQueueEntryRequest(null, null, null) : request;
+        StaffUser actor = staffUserService.resolveActor(safeRequest.actorName(), safeRequest.actorRole(), null);
+        QueueEntry entry = queueEntryRepository.findByPatientId(patientId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Queue entry not found."));
+        entry.updateStatus(QueueStatus.LEFT_WITHOUT_BEING_SEEN);
+        patientAgentService.handleRemovedFromQueue(entry, actor, safeRequest.reason());
+        queueEntryRepository.delete(entry);
     }
 
     @Transactional(readOnly = true)
     public long overrideCount() {
         return priorityOverrideRepository.count();
+    }
+
+    private QueueEntryResponse toResponse(QueueEntry entry) {
+        return QueueEntryResponse.from(
+            entry,
+            Instant.now(),
+            patientAgentService.currentAssignment(entry.getPatient().getId()).orElse(null)
+        );
     }
 }

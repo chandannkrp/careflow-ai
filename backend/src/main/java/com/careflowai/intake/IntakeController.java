@@ -3,6 +3,7 @@ package com.careflowai.intake;
 import com.careflowai.intake.dto.CreateIntakeRequest;
 import com.careflowai.intake.dto.IntakeResponse;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,6 +25,11 @@ public class IntakeController {
     @PostMapping
     public IntakeResponse create(@Valid @RequestBody CreateIntakeRequest request) {
         return intakeService.create(request);
+    }
+
+    @GetMapping("/next-patient-display-id")
+    public Map<String, String> nextPatientDisplayId() {
+        return Map.of("patientDisplayId", intakeService.nextPatientDisplayId());
     }
 
     @GetMapping("/{id}")
