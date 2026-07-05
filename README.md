@@ -138,8 +138,11 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 # Optional: route chat through the Python sidecar
 AI_SERVICE_URL=
 
-# Production only: comma-separated origins allowed to call the API cross-origin
-# (leave empty in dev — Vite proxies /api same-origin)
+# Production cross-origin access (frontend and backend on different hosts):
+# - Hackathon / demo (any URL): CORS_ALLOW_ALL=true   OR   CORS_ALLOWED_ORIGINS=*
+# - Locked down: comma-separated exact origins, e.g. https://your-app.vercel.app
+# Leave both empty in local dev — Vite proxies /api same-origin.
+CORS_ALLOW_ALL=true
 CORS_ALLOWED_ORIGINS=
 
 # Auth: HMAC secret for JWT signing (>= 32 chars; REQUIRED in production),

@@ -1,13 +1,13 @@
 # backend/src/main/resources/application.yml
 frontend/node_modules/
-frontend/dist/ 
-backend/target
+frontend/dist/
+
+# Maven build output (never commit compiled classes or jars)
+backend/target/
 
 .env
 frontend/.env.local
 frontend/.env.production
-target/
-backend/target/careflow-ai-0.1.0-SNAPSHOT.jar
 ai-service/.env
 ai-service/.venv/
 ai-service/__pycache__/
