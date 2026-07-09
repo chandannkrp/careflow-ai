@@ -341,6 +341,20 @@ export function getNotifications(role?: StaffRole, staffLookup?: string) {
   return apiRequest<StaffNotification[]>(`/api/notifications${query ? `?${query}` : ''}`);
 }
 
+export function createNotification(request: {
+  recipientStaffLookup: string;
+  patientDisplayId?: string;
+  category?: string;
+  title: string;
+  body: string;
+  agent?: string;
+}) {
+  return apiRequest<StaffNotification>('/api/notifications', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
 export function markNotificationRead(notificationId: string) {
   return apiRequest<void>(`/api/notifications/${notificationId}/read`, { method: 'POST' });
 }

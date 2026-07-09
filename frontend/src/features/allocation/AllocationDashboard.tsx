@@ -1,4 +1,4 @@
-import { AlertCircle, BedDouble, Grid2X2, ListChecks, RefreshCw, Stethoscope } from 'lucide-react';
+import { AlertCircle, BedDouble, Grid2X2, HeartPulse, ListChecks, RefreshCw, Sparkles, Stethoscope } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getHospitalAllocation } from '../../api/client';
 import type { BedAllocation, DoctorAllocation, HospitalAllocation } from '../../types/careflow';
@@ -143,34 +143,62 @@ function MetricTile({ icon: Icon, label, value, tone }: { icon: typeof BedDouble
   );
 }
 
+const bedUrgencyTone: Record<string, { headboard: string; blanket: string; text: string }> = {
+  CRITICAL: { headboard: 'bg-rose-600', blanket: 'bg-rose-400', text: 'text-rose-700' },
+  HIGH: { headboard: 'bg-amber-500', blanket: 'bg-amber-400', text: 'text-amber-700' },
+  MEDIUM: { headboard: 'bg-sky-500', blanket: 'bg-sky-400', text: 'text-sky-700' },
+  LOW: { headboard: 'bg-emerald-500', blanket: 'bg-emerald-400', text: 'text-emerald-700' },
+};
+
 function BedGrid({ beds }: { beds: BedAllocation[] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {beds.map((bed) => (
-        <article
-          key={bed.id}
-          className={`rounded-lg border p-3 shadow-sm ${
-            bed.filled ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-slate-950">{bed.label}</p>
-            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${bed.filled ? 'bg-white text-rose-800' : 'bg-white text-emerald-800'}`}>
-              {bed.filled ? 'Filled' : 'Vacant'}
-            </span>
-          </div>
-          <p className="mt-1 text-xs font-medium text-slate-500">{bed.department}</p>
-          <div className="mt-3 min-h-20 rounded-md bg-white p-3 ring-1 ring-inset ring-slate-100">
-            <p className="text-sm font-semibold text-slate-900">{bed.patientDisplayId ?? 'Ready'}</p>
-            <p className="mt-1 line-clamp-2 text-xs text-slate-500">{bed.chiefComplaint ?? 'No patient assigned'}</p>
-            {bed.filled ? (
-              <p className="mt-2 text-xs font-medium text-slate-600">
-                {formatEnumLabel(bed.urgencyCategory)} - {formatWait(bed.waitingMinutes)}
-              </p>
-            ) : null}
-          </div>
-        </article>
-      ))}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {beds.map((bed) => {
+        const tone = bed.filled ? bedUrgencyTone[bed.urgencyCategory ?? 'MEDIUM'] ?? bedUrgencyTone.MEDIUM : null;
+        return (
+          <article
+            key={bed.id}
+            className={`relative overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+              bed.filled ? 'border-slate-200' : 'border-dashed border-emerald-200'
+            }`}
+          >
+            {/* headboard */}
+            <div className={`h-2.5 w-full ${tone ? tone.headboard : 'bg-slate-200'}`} />
+
+            <div className="relative bg-white p-3 pt-5">
+              {/* pillow, overlapping the headboard like the head of a hospital bed */}
+              <span className="absolute -top-2 left-3 h-5 w-12 rounded-lg border border-slate-200 bg-white shadow-sm" aria-hidden="true" />
+
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-950">{bed.label}</p>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    bed.filled ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'
+                  }`}
+                >
+                  {bed.filled ? <HeartPulse size={11} aria-hidden="true" /> : <Sparkles size={11} aria-hidden="true" />}
+                  {bed.filled ? 'Occupied' : 'Fresh sheets'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs font-medium text-slate-500">{bed.department}</p>
+
+              {/* mattress body */}
+              <div className="mt-3 min-h-20 rounded-lg bg-slate-50 p-3 ring-1 ring-inset ring-slate-100">
+                <p className="text-sm font-semibold text-slate-900">{bed.patientDisplayId ?? 'Ready for next patient'}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{bed.chiefComplaint ?? 'No patient assigned'}</p>
+                {bed.filled ? (
+                  <p className={`mt-2 text-xs font-semibold ${tone?.text}`}>
+                    {formatEnumLabel(bed.urgencyCategory)} - {formatWait(bed.waitingMinutes)}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* blanket stripe */}
+              <div className={`mt-3 h-1.5 w-full rounded-full ${tone ? tone.blanket : 'bg-slate-100'}`} />
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
