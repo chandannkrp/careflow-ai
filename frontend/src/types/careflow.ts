@@ -511,3 +511,9 @@ export interface HospitalAllocation {
   beds: BedAllocation[];
   doctors: DoctorAllocation[];
 }
+
+export interface WeatherResponse {
+  temperature: number;
+  weatherCode: number;
+  isDay: boolean;
+}

@@ -27,6 +27,7 @@ import type {
   ThreadComment,
   UpdatePlacementRequest,
   UpdateQueueStatusRequest,
+  WeatherResponse,
 } from '../types/careflow';
 
 import { getToken, handleSessionExpired } from './auth';
@@ -427,4 +428,11 @@ export function sendHospitalChatMessage(request: { authorName: string; authorRol
     body: JSON.stringify(request),
     timeoutMs: 45000,
   });
+}
+
+// Proxied server-side so the browser never contacts a third-party weather domain
+// directly - keeps the app's entire client-visible network footprint on one origin.
+export function getWeather(latitude: number, longitude: number) {
+  const params = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+  return apiRequest<WeatherResponse>(`/api/weather?${params.toString()}`);
 }

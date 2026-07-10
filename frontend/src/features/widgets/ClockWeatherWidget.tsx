@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { getWeather } from '../../api/client';
 
 interface WeatherState {
   temperature: number;
@@ -46,27 +47,23 @@ function describeWeather(code: number): WmoDescriptor {
   return { label: 'Storms', day: CloudLightning, night: CloudLightning };
 }
 
+// Fetched through our own backend (see api/client.ts -> /api/weather), not directly
+// from the browser. Open-Meteo is called server-side so the app's entire client-visible
+// network footprint stays on a single origin - friendlier to corporate network policies
+// that flag pages contacting unrecognized third-party domains.
 async function fetchWeather(latitude: number, longitude: number, location: string): Promise<WeatherState> {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,is_day&timezone=auto`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Weather request failed (${response.status})`);
-  }
-  const data = (await response.json()) as {
-    current?: { temperature_2m?: number; weather_code?: number; is_day?: number };
-  };
-  const current = data.current ?? {};
+  const current = await getWeather(latitude, longitude);
   return {
-    temperature: Math.round(current.temperature_2m ?? 0),
-    code: current.weather_code ?? 0,
-    isDay: (current.is_day ?? 1) === 1,
+    temperature: current.temperature,
+    code: current.weatherCode,
+    isDay: current.isDay,
     location,
   };
 }
 
 /**
  * A slim always-on clock + live weather pill for the top bar, sitting just before the
- * patient marquee. Weather comes from the keyless Open-Meteo API using the browser's
+ * patient marquee. Weather comes from our backend's Open-Meteo proxy using the browser's
  * location, falling back to a default city when permission is denied.
  */
 export function ClockWeatherWidget() {
