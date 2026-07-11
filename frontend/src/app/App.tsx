@@ -8,7 +8,6 @@ import {
   FileUp,
   Gauge,
   GripVertical,
-  Hospital,
   Home,
   KeyRound,
   ListOrdered,
@@ -28,6 +27,7 @@ import { type PointerEvent, useCallback, useEffect, useState } from 'react';
 import { getDepartments, getHospitalAllocation, getQueueMetrics } from '../api/client';
 import { getSession, login, logout, type AuthSession } from '../api/auth';
 import { LoginShowcase } from './LoginShowcase';
+import { LogoMark } from '../components/Logo';
 import { Toaster } from '../components/toast';
 import { AiAgentChat, AiChatPage } from '../features/ai-chat';
 import { ChatDock } from '../features/ai-chat/ChatDock';
@@ -226,9 +226,7 @@ function WorkspaceApp() {
           style={{ width: navWidth }}
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-950 text-white">
-              <Hospital size={21} aria-hidden="true" />
-            </div>
+            <LogoMark size={40} className="shrink-0" />
             <div>
               <p className="text-base font-semibold text-slate-950">CareFlow AI</p>
               <p className="text-xs font-medium text-emerald-700">Healthcare workspace</p>
@@ -297,9 +295,7 @@ function WorkspaceApp() {
           <header className="sticky top-12 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-950 text-white">
-                  <Hospital size={19} aria-hidden="true" />
-                </div>
+                <LogoMark size={36} className="shrink-0" />
                 <p className="font-semibold">CareFlow AI</p>
               </div>
               <p className="truncate text-xs font-medium text-slate-600">
@@ -407,9 +403,7 @@ function LoginScreen({ onLogin }: { onLogin: (session: AuthSession) => void }) {
         <div className="flex items-center justify-center p-4 sm:p-8">
           <section className="w-full max-w-md rounded-2xl border border-white/10 bg-white p-6 shadow-2xl">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-md bg-slate-950 text-white">
-                <Hospital size={21} aria-hidden="true" />
-              </span>
+              <LogoMark size={44} className="shrink-0" />
               <div>
                 <p className="text-sm font-medium text-emerald-700">CareFlow login</p>
                 <h1 className="text-xl font-semibold text-slate-950">Sign in to your workspace</h1>

@@ -1,4 +1,8 @@
-# CareFlow AI 🏥
+<p align="center">
+  <img src="frontend/public/logo.svg" alt="CareFlow AI" width="320" />
+</p>
+
+# CareFlow AI
 
 **An agentic hospital triage and patient-flow platform.** CareFlow AI turns a raw patient
 intake — chief complaint, symptoms, vitals, risk flags — into a triaged, prioritised,

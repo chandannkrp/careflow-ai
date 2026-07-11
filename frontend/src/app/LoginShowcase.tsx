@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { type KeyboardEvent, type WheelEvent, useEffect, useRef, useState } from 'react';
+import { LogoMark } from '../components/Logo';
 
 interface PipelineStage {
   key: string;
@@ -258,7 +259,10 @@ function StorySlide({ onExplore }: { onExplore: () => void }) {
         <Sparkles size={13} aria-hidden="true" />
         Built for the OpenAI Agentic AI Hackathon
       </span>
-      <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">CareFlow AI</h1>
+      <div className="mt-5 flex items-center gap-3">
+        <LogoMark size={44} className="shrink-0" />
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">CareFlow AI</h1>
+      </div>
       <p className="mt-2 max-w-xl text-base font-medium text-emerald-200">
         Agentic hospital triage that thinks in seconds, not minutes.
       </p>
