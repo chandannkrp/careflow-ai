@@ -5,6 +5,8 @@ frontend/dist/
 # Maven build output (never commit compiled classes or jars)
 backend/target/
 
+hackathon-files
+
 .env
 frontend/.env.local
 frontend/.env.production

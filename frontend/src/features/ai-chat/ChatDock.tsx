@@ -4,7 +4,6 @@ import { getNotifications } from '../../api/client';
 import type { StaffUser } from '../../types/careflow';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { PatientMarquee } from '../queue/PatientMarquee';
-import { ClockWeatherWidget } from '../widgets/ClockWeatherWidget';
 import { AiAgentChat } from './AiAgentChat';
 import { HospitalLiveChat } from './HospitalLiveChat';
 import { SaviOrb } from './SaviOrb';
@@ -77,7 +76,6 @@ export function ChatDock({ activeStaff, onAction, onLogout, onNavigate, marqueeR
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-12 items-center gap-3 border-b border-white/10 bg-slate-950 px-3 text-white shadow-lg">
-      <ClockWeatherWidget />
       <PatientMarquee refreshSignal={marqueeRefreshSignal} activeStaff={activeStaff} />
 
       <div className="relative flex shrink-0 items-center gap-1">
